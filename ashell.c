@@ -43,7 +43,6 @@ int main()
   int raw_input_string_index = 0;
   char raw_input;
   int exit = false;
-  bool build_string;
 
   // set to noncanonical mode, treat input as characters
   // instead of lines ending on newline or EOF
@@ -58,9 +57,6 @@ int main()
     // if escape character found, check which arrow key was pressed
     if (raw_input == 0x1B)
     {
-      // stop listening for string
-      build_string = false;
-
       // skip second escape character and check which arrow it is
       read(0, &raw_input, 1);
       read(0, &raw_input, 1);
@@ -74,13 +70,7 @@ int main()
         write(1, "down\n", 5);
     }
     else
-      // else mark as valid input
-      build_string = true;
-
-    // build string until newline if valid input
-    if (build_string)
     {
-  
       // write input character out for user to see
       write(1, &raw_input, 1);
   
@@ -103,10 +93,6 @@ int main()
       }
 
     }
-    else
-      // reset if arrow key was processed
-      build_string = true;
-    
   }
 
   // reset mode to canonical
