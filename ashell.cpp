@@ -73,18 +73,37 @@ int main()
       // source used: #1
       if (raw_input == 0x41)
       {
-        cout << "command size: " << commands.size() << endl;
         // check if any commands in history or if current spot in history is at top
         if (commands_current_index == 0)
-          cout << "play bell" << endl;
-        else
         {
-          list<string>::iterator iter = commands.begin();
-          cout << "earlier command: " << *iter;
+          commands_current_index++;
+          cout << "play bell" << endl;
         }
+        // start at beginning of commands list and move to one before
+        // the current index. then move the index to the earlier command
+        list<string>::iterator iter = commands.begin();
+        advance(iter, commands_current_index-1);
+        commands_current_index--;
+        cout << "command before: " << *iter;
       }
       else if (raw_input == 0x42)
-        write(1, "down\n", 5);
+      {
+
+        /* work in progress */
+
+        // check if at end of command list (at prompt)
+        if ((int)commands.size() == commands_current_index)
+          cout << "end of line" << endl;
+        else
+        {
+          // start at beginning of commands list and move to index
+          // move index to the later command
+          list<string>::iterator iter = commands.begin();
+          advance(iter, commands_current_index);
+          commands_current_index++;
+          cout << "command after: " << *iter;
+        }
+      }
     }
     else
     {
@@ -104,12 +123,15 @@ int main()
         else
         {
           string command(raw_input_string);
+
+          // if commands history full, remove the oldest
           if (commands.size() == 10)
             commands.pop_front();
-          cout << "size before add: " << commands.size() << endl;
+
+          // add command to end of history list
           commands.push_back(command);
           commands_current_index = commands.size();
-          cout << "size after add: " << commands.size() << endl;
+
           // write(1, raw_input_string, raw_input_string_index);
           // reset index to zero for new input
           raw_input_string_index = 0;
