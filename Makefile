@@ -1,2 +1,2 @@
 all:
-	g++ -Wall -g -o ashell.out ashell.c
+	g++ -Wall -g -o ashell.out ashell.cpp

@@ -6,6 +6,8 @@
 #include <string.h>
 #include <string>
 #include <iostream>
+#include <list>
+#include <iterator>
 
 using namespace std;
 
@@ -39,9 +41,14 @@ void set_non_canonical_mode(int fd, struct termios *savedattributes)
 int main()
 {
   struct termios SavedTermAttributes;
+  
+  list<string> commands;
+  int commands_current_index = 0;
+
   char raw_input_string[128];
   int raw_input_string_index = 0;
   char raw_input;
+
   int exit = false;
 
   // set to noncanonical mode, treat input as characters
@@ -65,7 +72,17 @@ int main()
       // Down Arrow => 0x1B 0x5B 0x42
       // source used: #1
       if (raw_input == 0x41)
-        write(1, "up\n", 3);
+      {
+        cout << "command size: " << commands.size() << endl;
+        // check if any commands in history or if current spot in history is at top
+        if (commands_current_index == 0)
+          cout << "play bell" << endl;
+        else
+        {
+          list<string>::iterator iter = commands.begin();
+          cout << "earlier command: " << *iter;
+        }
+      }
       else if (raw_input == 0x42)
         write(1, "down\n", 5);
     }
@@ -86,7 +103,14 @@ int main()
           exit = true;
         else
         {
-          write(1, raw_input_string, raw_input_string_index);
+          string command(raw_input_string);
+          if (commands.size() == 10)
+            commands.pop_front();
+          cout << "size before add: " << commands.size() << endl;
+          commands.push_back(command);
+          commands_current_index = commands.size();
+          cout << "size after add: " << commands.size() << endl;
+          // write(1, raw_input_string, raw_input_string_index);
           // reset index to zero for new input
           raw_input_string_index = 0;
         }
