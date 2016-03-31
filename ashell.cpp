@@ -51,9 +51,20 @@ int main()
 
   int exit = false;
 
+
+  //string working_directory = string(getcwd());
+  char getcwd_buff[100];
+  getcwd(getcwd_buff, 100);
+  string working_directory = string(getcwd_buff);
+  int working_directory_length = working_directory.length();
+
   // set to noncanonical mode, treat input as characters
   // instead of lines ending on newline or EOF
   set_non_canonical_mode(STDIN_FILENO, &SavedTermAttributes);
+
+  // set prompt
+  //write(1, working_directory.c_str(), working_directory_length);
+  //write(1, "%", 1);
 
   // endless loop until exit typed
   while (exit == false)
@@ -89,7 +100,11 @@ int main()
       else if (raw_input == 0x42)
       {
 
-        /* work in progress */
+        // increment if at beginning of list
+        if (commands_current_index == 0)
+        {
+          commands_current_index++;
+        }
 
         // check if at end of command list (at prompt)
         if ((int)commands.size() == commands_current_index)
@@ -102,6 +117,7 @@ int main()
           advance(iter, commands_current_index);
           commands_current_index++;
           cout << "command after: " << *iter;
+          fflush(stdout);
         }
       }
     }
