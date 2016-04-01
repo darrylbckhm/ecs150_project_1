@@ -7,9 +7,9 @@
 using namespace std;
 
 void ls();
-void downHistory(list<string>* commands, int* commands_current_index);
-void upHistory(list<string>* commands, int* commands_current_index);
-void commandHistory(char* raw_input, list<string>* commands, int* commands_current_index);
+void downHistory(list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index);
+void upHistory(list<string>* commands, int* commands_current_index, char* raw_input_string, int* raw_input_string_index);
+void commandHistory(char* raw_input, list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index);
 bool processInput(char* raw_input, list<string>* commands, int* commands_current_index, char* raw_input_string, int* raw_input_string_index);
 bool writeInput(char* raw_input, list<string>* commands, int* commands_current_index, char* raw_input_string, int* raw_input_string_index);
 char readInput(char* raw_input);

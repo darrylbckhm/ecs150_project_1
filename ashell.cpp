@@ -37,7 +37,7 @@ void ls() //source used: #2
 
 }
 
-void downHistory(list<string>* commands, int* commands_current_index)
+void downHistory(list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index)
 {
 
    // increment if at beginning of list
@@ -62,7 +62,7 @@ void downHistory(list<string>* commands, int* commands_current_index)
       advance(iter, *(commands_current_index));
       (*commands_current_index)++;
 
-      cout << "command after: " << *iter;
+      cout << *iter;
 
       fflush(stdout);
 
@@ -70,7 +70,7 @@ void downHistory(list<string>* commands, int* commands_current_index)
 
 }
 
-void upHistory(list<string>* commands, int* commands_current_index)
+void upHistory(list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index)
 {
 
    // check if any commands in history or if current spot in history is at top
@@ -79,7 +79,7 @@ void upHistory(list<string>* commands, int* commands_current_index)
 
     (*commands_current_index)++;
 
-    cout << "play bell" << endl;
+    write(1, "\a", 1);
 
   }
  
@@ -90,11 +90,21 @@ void upHistory(list<string>* commands, int* commands_current_index)
   advance(iter, (*commands_current_index)-1);
   (*commands_current_index)--;
 
-  cout << "command before: " << *iter;
+
+  for (int i = 0; i < *raw_input_string_index; i++)
+  {
+    write(1, "\b \b", 3);
+  }
+
+  string raw_command = *iter;
+  string command = raw_command.substr(0, raw_command.size()-1); // source used: #3
+  write(1, command.c_str(), command.size());
+  strcpy(raw_input_string, command.c_str());
+  *raw_input_string_index = command.size();
 
 }
 
-void commandHistory(char* raw_input, list<string>* commands, int* commands_current_index)
+void commandHistory(char* raw_input, list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index)
 {
  
    // skip second escape character and check which arrow it is
@@ -107,14 +117,14 @@ void commandHistory(char* raw_input, list<string>* commands, int* commands_curre
   if (*raw_input == 0x41)
   {
 
-    upHistory(commands, commands_current_index);
+    upHistory(commands, commands_current_index, raw_input_string, raw_input_string_index);
 
   }
 
   else if (*raw_input == 0x42)
   {
 
-    downHistory(commands, commands_current_index);
+    downHistory(commands, commands_current_index, raw_input_string, raw_input_string_index);
 
   }
 
@@ -124,13 +134,22 @@ void commandHistory(char* raw_input, list<string>* commands, int* commands_curre
 bool processInput(char* raw_input, list<string>* commands, int* commands_current_index,
                   char* raw_input_string, int* raw_input_string_index)
 {
-
   if (*raw_input == 0x1B)
   {
   
-    commandHistory(raw_input, commands, commands_current_index);
+    commandHistory(raw_input, commands, commands_current_index, raw_input_string, raw_input_string_index);
     return true;
 
+  }
+
+  else if (*raw_input == 0x7F)
+  {
+    if (*raw_input_string_index > 0)
+    {
+      write(1, "\b \b", 3);
+      (*raw_input_string_index)--;
+    }
+    return true;
   }
 
   else
@@ -186,6 +205,12 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
       addHistory(commands, commands_current_index, raw_input_string, raw_input_string_index);
 
     }
+    
+    string working_directory = get_working_dir();
+    
+    int working_directory_length = working_directory.length();
+    
+    writePrompt(&working_directory, &working_directory_length);
 
   }
 
@@ -204,7 +229,6 @@ char readInput(char* raw_input)
 
 string get_working_dir()
 {
-
   //string working_directory = string(getcwd());
   char getcwd_buff[100];
   getcwd(getcwd_buff, 100);
@@ -253,6 +277,7 @@ void writePrompt(string* working_directory, int* working_directory_length)
 
   // set prompt
   //write(1, (*working_directory).c_str(), *working_directory_length);
+  write(1, working_directory->c_str(), *working_directory_length);
   write(1, "%", 1);
 
 }
@@ -272,15 +297,14 @@ int main(int argc, char* argv[])
 
   char raw_input_string[128];
   int raw_input_string_index = 0;
-  char raw_input = readInput(&raw_input);
-
-  //int exit = false;
 
   string working_directory = get_working_dir();
   
   int working_directory_length = working_directory.length();
 
   writePrompt(&working_directory, &working_directory_length);
+  
+  char raw_input = readInput(&raw_input);
 
   while(processInput(&raw_input, &commands, &commands_current_index, raw_input_string, &raw_input_string_index))
   {
