@@ -63,8 +63,8 @@ int main()
   set_non_canonical_mode(STDIN_FILENO, &SavedTermAttributes);
 
   // set prompt
-  //write(1, working_directory.c_str(), working_directory_length);
-  //write(1, "%", 1);
+  write(1, working_directory.c_str(), working_directory_length);
+  write(1, "%", 1);
 
   // endless loop until exit typed
   while (exit == false)
@@ -117,7 +117,6 @@ int main()
           advance(iter, commands_current_index);
           commands_current_index++;
           cout << "command after: " << *iter;
-          fflush(stdout);
         }
       }
     }
@@ -151,6 +150,10 @@ int main()
           // write(1, raw_input_string, raw_input_string_index);
           // reset index to zero for new input
           raw_input_string_index = 0;
+       
+          // write prompt
+          write(1, working_directory.c_str(), working_directory_length);
+          write(1, "%", 1);
         }
       }
 
