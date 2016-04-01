@@ -50,8 +50,7 @@ void downHistory(list<string>* commands, int* commands_current_index, char *raw_
 
    // check if at end of command list (at prompt)
    if ((int)(*commands).size() == *commands_current_index)
-    cout << "end of line" << endl;
-
+     write(1, "\a", 1);
    else
    {
 
@@ -61,8 +60,17 @@ void downHistory(list<string>* commands, int* commands_current_index, char *raw_
 
       advance(iter, *(commands_current_index));
       (*commands_current_index)++;
-
-      cout << *iter;
+      
+      for (int i = 0; i < *raw_input_string_index; i++)
+      {
+        write(1, "\b \b", 3);
+      }
+        
+      string raw_command = *iter;
+      string command = raw_command.substr(0, raw_command.size()-1); // source used: #3
+      write(1, command.c_str(), command.size());
+      strcpy(raw_input_string, command.c_str());
+      *raw_input_string_index = command.size();
 
       fflush(stdout);
 
