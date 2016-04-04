@@ -67,18 +67,25 @@ vector<string> tokenize(char* raw_input_string) //source: 4
 
 void ls(vector<string>* tokens) //source used: #2,3
 {
+  cout << "a" << endl;
 
   DIR *dir;
   struct dirent *dp;
   pid_t pid = fork();
 
+  cout << "tokens_size: " << tokens->size() << endl;
+
   if(pid == 0) //child process
   {
 
-      for(int i = 1; i < (*tokens).size(); i++)
-      {
+    // if just ls
+    if (tokens->size() == 1)
+    {
+    }
+    else // if directory specified
+    {
 
-        string path = (*tokens)[i];
+        string path = (*tokens)[1];
 
         if(isADirectory(&path))
         {
@@ -95,12 +102,12 @@ void ls(vector<string>* tokens) //source used: #2,3
           cout << "Not a directory\n";
 
         }
-
-      }
-
+    }
   }
-
+  
+  cout << "b" << endl;
 }
+
 void downHistory(list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index)
 {
 
@@ -144,6 +151,10 @@ void downHistory(list<string>* commands, int* commands_current_index, char *raw_
 
 void upHistory(list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index)
 {
+
+  // nothing in commands, exit and do nothing
+  if (commands->size() == 0)
+    return;
 
    // check if any commands in history or if current spot in history is at top
   if (*commands_current_index == 0)
@@ -275,7 +286,6 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
   else
     cout << "exec external command";
 
-  raw_input_string = "";
   (*tokens).clear();
 
 }
@@ -324,7 +334,6 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
       addHistory(commands, commands_current_index, raw_input_string, raw_input_string_index);
       runCommand(raw_input_string, tokens);
       (*tokens).clear();
-      raw_input_string = "";
 
     }
     
@@ -425,15 +434,15 @@ int main(int argc, char* argv[])
 
   int commands_current_index = 0;
 
-  char raw_input_string[128];
-  int raw_input_string_index = 0;
-  char raw_input = readInput(&raw_input);
-
   string working_directory = get_working_dir();
   
   int working_directory_length = working_directory.length();
 
   writePrompt(&working_directory, &working_directory_length);
+
+  char raw_input_string[128];
+  int raw_input_string_index = 0;
+  char raw_input = readInput(&raw_input);
 
   while(processInput(&raw_input, &commands, &commands_current_index, raw_input_string, &raw_input_string_index, &tokens))
   {
