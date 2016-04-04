@@ -9,12 +9,63 @@
 #include <list>
 #include <iterator>
 #include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <vector>
+#include <sstream>
 
 #include "ashell.h"
 
 using namespace std;
 
-void ls() //source used: #2
+void cd(vector<string>* tokens)
+{
+
+  string path = (*tokens)[1];
+
+  if(isADirectory(&path))
+  {
+
+    write(1,"is dir",6);
+    chdir((*tokens)[1].c_str());
+
+  }
+
+  else
+  {
+   
+     write(1,"Not a directory", 20);
+  }
+
+}
+
+bool isADirectory(string* path)
+{
+
+  const char* tmp = (*path).c_str();
+  struct stat path_stat;
+  stat(tmp, &path_stat);
+  return S_ISDIR(path_stat.st_mode);
+
+}
+
+vector<string> tokenize(char* raw_input_string) //source: 4
+{
+
+  string str = raw_input_string;
+  string buf;
+  stringstream ss(str);
+
+  vector<string> tokens;
+
+  while (ss >> buf)
+    tokens.push_back(buf);
+
+  return tokens;
+
+}
+
+void ls(vector<string>* tokens) //source used: #2,3
 {
 
   DIR *dir;
@@ -24,19 +75,32 @@ void ls() //source used: #2
   if(pid == 0) //child process
   {
 
-    dir = opendir(".");
+      for(int i = 1; i < (*tokens).size(); i++)
+      {
 
-    while((dp = readdir(dir)) != NULL)
-    {
+        string path = (*tokens)[i];
 
-      cout << dp->d_name << '\n';
+        if(isADirectory(&path))
+        {
 
-    }
+          dir = opendir(path.c_str());
+          while((dp = readdir(dir)) != NULL)
+            cout << dp->d_name << '\n';
+      
+        }
+
+        else
+        {
+
+          cout << "Not a directory\n";
+
+        }
+
+      }
 
   }
 
 }
-
 void downHistory(list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index)
 {
 
@@ -140,7 +204,7 @@ void commandHistory(char* raw_input, list<string>* commands, int* commands_curre
 }
 
 bool processInput(char* raw_input, list<string>* commands, int* commands_current_index,
-                  char* raw_input_string, int* raw_input_string_index)
+                  char* raw_input_string, int* raw_input_string_index, vector<string>* tokens)
 {
   if (*raw_input == 0x1B)
   {
@@ -163,9 +227,56 @@ bool processInput(char* raw_input, list<string>* commands, int* commands_current
   else
   {
 
-    return writeInput(raw_input, commands, commands_current_index, raw_input_string, raw_input_string_index);
+    return writeInput(raw_input, commands, commands_current_index, raw_input_string, raw_input_string_index, tokens);
 
   }
+
+}
+
+void runCommand(char* raw_input_string, vector<string>* tokens)
+{
+
+  string cmd = (*tokens)[0];
+
+  //cout << cmd << '\n';
+
+  if(cmd == "ls")
+  {
+
+    cout << "exec ls\n";
+    ls(tokens);
+
+  }
+
+  else if(cmd == "cd")
+  {
+
+    cout << "exec cd\n";
+    cd(tokens);
+
+  }
+
+  else if(cmd == "pwd")
+  {
+
+    cout << "exec pwd";
+    write(1, get_working_dir().c_str(), get_working_dir().size());
+    write(1, "\n", 1);
+
+  }
+
+  else if(cmd == "ff")
+  {
+
+    cout << "exec ff";
+
+  }
+
+  else
+    cout << "exec external command";
+
+  raw_input_string = "";
+  (*tokens).clear();
 
 }
 
@@ -189,7 +300,7 @@ void addHistory(list<string>* commands, int* commands_current_index, char* raw_i
 }
 
 bool writeInput(char* raw_input, list<string>* commands, int* commands_current_index,
-                char* raw_input_string, int* raw_input_string_index)
+                char* raw_input_string, int* raw_input_string_index, vector<string>* tokens)
 {
 
   // write input character out for user to see
@@ -203,14 +314,17 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
   {
 
     raw_input_string[(*raw_input_string_index)] = '\0';
+    *tokens = tokenize(raw_input_string);
   
     if (strcmp(raw_input_string, "exit\n") == 0)
       return false;
 
     else
     {
-
       addHistory(commands, commands_current_index, raw_input_string, raw_input_string_index);
+      runCommand(raw_input_string, tokens);
+      (*tokens).clear();
+      raw_input_string = "";
 
     }
     
@@ -228,6 +342,12 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
 
 char readInput(char* raw_input)
 {
+
+  struct termios SavedTermAttributes;
+
+  // set to noncanonical mode, treat input as characters
+  // instead of lines ending on newline or EOF
+  set_non_canonical_mode(STDIN_FILENO, &SavedTermAttributes);
 
   char tmp;
   read(0, &tmp, 1);
@@ -301,25 +421,28 @@ int main(int argc, char* argv[])
   
   list<string> commands;
 
+  vector<string> tokens;
+
   int commands_current_index = 0;
 
   char raw_input_string[128];
   int raw_input_string_index = 0;
+  char raw_input = readInput(&raw_input);
 
   string working_directory = get_working_dir();
   
   int working_directory_length = working_directory.length();
 
   writePrompt(&working_directory, &working_directory_length);
-  
-  char raw_input = readInput(&raw_input);
 
-  while(processInput(&raw_input, &commands, &commands_current_index, raw_input_string, &raw_input_string_index))
+  while(processInput(&raw_input, &commands, &commands_current_index, raw_input_string, &raw_input_string_index, &tokens))
   {
 
     raw_input = readInput(&raw_input);
 
   }
+
+  return 0;
 
 }
 
