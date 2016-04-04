@@ -67,13 +67,10 @@ vector<string> tokenize(char* raw_input_string) //source: 4
 
 void ls(vector<string>* tokens) //source used: #2,3
 {
-  cout << "a" << endl;
 
   DIR *dir;
   struct dirent *dp;
   pid_t pid = fork();
-
-  cout << "tokens_size: " << tokens->size() << endl;
 
   if(pid == 0) //child process
   {
@@ -105,7 +102,6 @@ void ls(vector<string>* tokens) //source used: #2,3
     }
   }
   
-  cout << "b" << endl;
 }
 
 void downHistory(list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index)
