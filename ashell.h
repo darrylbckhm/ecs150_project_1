@@ -6,11 +6,14 @@
 
 using namespace std;
 
+pid_t newChild();
+void pwd(pid_t* pid, int* status, vector<string>* tokens);
+void ff(pid_t* pid, int* status, vector<string>* tokens, int level);
 bool isADirectory(string* path);
 void cd(vector<string>* tokens);
 void runCommand(char* raw_input_string);
 vector<string> tokenize(char* raw_input_string);
-void ls(vector<string>* tokens);
+void ls(pid_t* pid, int* status, vector<string>* tokens);
 void downHistory(list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index);
 void upHistory(list<string>* commands, int* commands_current_index, char* raw_input_string, int* raw_input_string_index);
 void commandHistory(char* raw_input, list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index);

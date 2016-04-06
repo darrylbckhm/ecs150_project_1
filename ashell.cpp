@@ -21,6 +21,104 @@
 
 using namespace std;
 
+pid_t newChild()
+{
+
+  pid_t pid = fork();
+  return pid;
+
+}
+
+void pwd(pid_t* pid, int* status)
+{
+
+  if(*pid == 0)
+  {
+
+    write(1, get_working_dir().c_str(), get_working_dir().size());
+    write(1, "\n", 1);
+
+  }
+
+  else
+    wait(&status);
+
+}
+
+void ff(pid_t* pid, int* status, vector<string>* tokens, const char* dirname, int level) //source: http://stackoverflow.com/questions/8436841/how-to-recursively-list-directories-in-c-on-linux
+{
+
+  //if(*pid == 0) //child
+  //{
+  //cout << "inside ff child\n";
+  DIR *dir;
+  struct dirent *entry;
+  struct stat dirInfo;
+
+  string absStem;
+
+  if(level == 0)
+    absStem = dirname;
+
+  const char* file = (*tokens)[1].c_str();
+
+    if (!(dir = opendir(dirname)))
+      return;
+    if (!(entry = readdir(dir)))
+      return;
+
+    do
+    {
+
+        if (entry->d_type == DT_DIR) 
+        {
+
+            char path[1024];
+
+            int len = snprintf(path, sizeof(path)-1, "%s/%s", dirname, entry->d_name);
+
+            path[len] = 0;
+
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+              continue;
+
+            //printf("%*s[%s]\n", level*2, "", entry->d_name);
+            ff(pid, status, tokens, path, level + 1);
+
+        }
+
+        else
+        {
+          char* fname = entry->d_name;
+          if(!strcmp(fname, file))
+          {
+            //if(level == 0)
+              cout << absStem << "/" << file << "\n";
+
+          }
+
+        }
+    }
+
+    while (entry = readdir(dir));
+    {
+
+      ;
+
+    }
+ 
+   closedir(dir);
+
+   //exit(0);
+
+  //}
+
+  //else
+    //wait(&status);
+
+
+}
+
 void cd(vector<string>* tokens)
 {
 
@@ -66,12 +164,11 @@ vector<string> tokenize(char* raw_input_string) //source: 4
 
 }
 
-void ls(vector<string>* tokens) //source used: #2,3
+void ls(pid_t* pid, int* status, vector<string>* tokens) //source used: #2,3
 {
 
   DIR *dir;
   struct dirent *dp;
-  pid_t pid = fork();
 
   if(pid == 0) //child process
   {
@@ -141,7 +238,7 @@ void ls(vector<string>* tokens) //source used: #2,3
   else
   {
     int status;
-    waitpid(pid, &status, WCONTINUED | WUNTRACED);
+    //waitpid(pid, &status, WCONTINUED | WUNTRACED);
   }
   
 }
@@ -291,14 +388,18 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
 
   if(cmd == "ls")
   {
-
-    ls(tokens);
+    pid_t pid;
+    pid = newChild();
+    int status;
+    cout << "exec ls\n";
+    ls(&pid, &status, tokens);
 
   }
 
   else if(cmd == "cd")
   {
 
+    cout << "exec cd\n";
     cd(tokens);
 
   }
@@ -306,16 +407,32 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
   else if(cmd == "pwd")
   {
 
-    cout << "exec pwd";
-    write(1, get_working_dir().c_str(), get_working_dir().size());
-    write(1, "\n", 1);
+    pid_t pid;
+    pid = newChild();
+    int status;
+
+    cout << "exec pwd\n";
+    pwd(&pid, &status);
 
   }
 
   else if(cmd == "ff")
   {
 
-    cout << "exec ff";
+    pid_t pid;
+    pid = newChild();
+    int status;
+
+    cout << "exec ff\n";
+
+    const char* dirname;
+
+    if((*tokens).size() == 2)
+      dirname = ".";
+    else
+      dirname = (*tokens)[2].c_str();
+
+    ff(&pid, &status, tokens, dirname, 0);
 
   }
 
@@ -392,8 +509,10 @@ char readInput(char* raw_input)
 
   char tmp;
   read(0, &tmp, 1);
-  return *raw_input = tmp;
-
+  if(tmp == 0x04)
+    exit(0);
+  else
+    return *raw_input = tmp;
 }
 
 string get_working_dir()
