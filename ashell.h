@@ -20,7 +20,7 @@ char readInput(char* raw_input);
 string get_working_dir();
 void reset_canonical_mode(int fd, struct termios *savedattributes);
 void set_non_canonical_mode(int fd, struct termios *savedattributes);
-void writePrompt(string* working_directory, int* working_directory_length);
+void writePrompt();
 int main(int argc, char* argv[]);
 
 #endif

@@ -9,8 +9,11 @@
 #include <list>
 #include <iterator>
 #include <dirent.h>
+
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+
 #include <vector>
 #include <sstream>
 
@@ -26,7 +29,6 @@ void cd(vector<string>* tokens)
   if(isADirectory(&path))
   {
 
-    write(1,"is dir",6);
     chdir((*tokens)[1].c_str());
 
   }
@@ -46,7 +48,6 @@ bool isADirectory(string* path)
   struct stat path_stat;
   stat(tmp, &path_stat);
   return S_ISDIR(path_stat.st_mode);
-
 }
 
 vector<string> tokenize(char* raw_input_string) //source: 4
@@ -74,32 +75,73 @@ void ls(vector<string>* tokens) //source used: #2,3
 
   if(pid == 0) //child process
   {
-
+    string path;
+    
     // if just ls
     if (tokens->size() == 1)
     {
+      path = ".";
     }
     else // if directory specified
     {
-
-        string path = (*tokens)[1];
-
-        if(isADirectory(&path))
-        {
-
-          dir = opendir(path.c_str());
-          while((dp = readdir(dir)) != NULL)
-            cout << dp->d_name << '\n';
-      
-        }
-
-        else
-        {
-
-          cout << "Not a directory\n";
-
-        }
+      path = (*tokens)[1];
     }
+      
+    // checks if specified argument is a file or nonexistent
+    if(isADirectory(&path))
+    {
+      dir = opendir(path.c_str());
+
+      // reads dir
+      while((dp = readdir(dir)) != NULL)
+      {
+        // create full pathname
+        string filename = dp->d_name;
+        string working_directory = get_working_dir();
+        
+        string path = working_directory + "/" + filename;
+
+        if (tokens->size() == 2)
+          path =  working_directory + "/" + (*tokens)[1] + "/" + filename;
+
+        // grab permissions info and fill in permissions
+        struct stat file_stats;
+        stat(path.c_str(), &file_stats);
+        mode_t mode = file_stats.st_mode;
+        char permissions[11] = "----------";
+
+        if (S_ISDIR(mode)) permissions[0] = 'd';
+
+        // using source: #4
+        if (mode & S_IRUSR) permissions[1] = 'r';
+        if (mode & S_IWUSR) permissions[2] = 'w';
+        if (mode & S_IXUSR) permissions[3] = 'x';
+        
+        if (mode & S_IRGRP) permissions[4] = 'r';
+        if (mode & S_IWGRP) permissions[5] = 'w';
+        if (mode & S_IXGRP) permissions[6] = 'x';
+        
+        if (mode & S_IROTH) permissions[7] = 'r';
+        if (mode & S_IWOTH) permissions[8] = 'w';
+        if (mode & S_IXOTH) permissions[9] = 'x';
+        
+        permissions[10] = '\0';
+
+        cout << permissions << " ";
+        cout << filename << endl;
+      }
+    }
+    else
+    {
+      cout << "Not a directory\n";
+    }
+
+    exit(0);
+  }
+  else
+  {
+    int status;
+    waitpid(pid, &status, WCONTINUED | WUNTRACED);
   }
   
 }
@@ -250,7 +292,6 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
   if(cmd == "ls")
   {
 
-    cout << "exec ls\n";
     ls(tokens);
 
   }
@@ -258,7 +299,6 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
   else if(cmd == "cd")
   {
 
-    cout << "exec cd\n";
     cd(tokens);
 
   }
@@ -333,11 +373,7 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
 
     }
     
-    string working_directory = get_working_dir();
-    
-    int working_directory_length = working_directory.length();
-    
-    writePrompt(&working_directory, &working_directory_length);
+    writePrompt();
 
   }
 
@@ -405,12 +441,22 @@ void set_non_canonical_mode(int fd, struct termios *savedattributes)
 
 }
 
-void writePrompt(string* working_directory, int* working_directory_length)
+void writePrompt()
 {
 
   // set prompt
-  //write(1, (*working_directory).c_str(), *working_directory_length);
-  write(1, working_directory->c_str(), *working_directory_length);
+  string working_directory = get_working_dir();
+
+  size_t last_slash = working_directory.find_last_of("/");
+  string last_folder = working_directory.substr(last_slash, working_directory.length()-1);
+
+
+  if (working_directory.length() > 16)
+  {
+    working_directory = "/..." + last_folder;
+  }
+  
+  write(1, working_directory.c_str(), working_directory.length());
   write(1, "%", 1);
 
 }
@@ -429,12 +475,7 @@ int main(int argc, char* argv[])
   vector<string> tokens;
 
   int commands_current_index = 0;
-
-  string working_directory = get_working_dir();
-  
-  int working_directory_length = working_directory.length();
-
-  writePrompt(&working_directory, &working_directory_length);
+  writePrompt();
 
   char raw_input_string[128];
   int raw_input_string_index = 0;
