@@ -41,80 +41,69 @@ void pwd(pid_t* pid, int* status)
   }
 
   else
-    wait(&status);
+    wait(status);
 
 }
 
-void ff(pid_t* pid, int* status, vector<string>* tokens, const char* dirname, int level) //source: http://stackoverflow.com/questions/8436841/how-to-recursively-list-directories-in-c-on-linux
+void ff(pid_t* pid, int* status, vector<string>* tokens, const char* dirname, int level, int end) //source: http://stackoverflow.com/questions/8436841/how-to-recursively-list-directories-in-c-on-linux
 {
+  if(*pid == 0) //child
+  {
+    DIR *dir;
+    struct dirent *entry;
 
-  //if(*pid == 0) //child
-  //{
-  //cout << "inside ff child\n";
-  DIR *dir;
-  struct dirent *entry;
-  struct stat dirInfo;
+    string absStem;
 
-  string absStem;
+    if(level == 0)
+      absStem = dirname;
 
-  if(level == 0)
-    absStem = dirname;
+    const char* file = (*tokens)[1].c_str();
 
-  const char* file = (*tokens)[1].c_str();
-
+    // try to open directory
     if (!(dir = opendir(dirname)))
       return;
     if (!(entry = readdir(dir)))
       return;
 
-    do
+    while ((entry = readdir(dir)) != NULL)
     {
+      if (entry->d_type == DT_DIR) 
+      {
+        char path[1024];
 
-        if (entry->d_type == DT_DIR) 
+        int len = snprintf(path, sizeof(path)-1, "%s/%s", dirname, entry->d_name);
+
+        path[len] = 0;
+
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+          continue;
+
+        ff(pid, status, tokens, path, level + 1, ++end);
+        end--; 
+
+      }
+
+      else
+      {
+        char* fname = entry->d_name;
+        if(!strcmp(fname, file))
         {
-
-            char path[1024];
-
-            int len = snprintf(path, sizeof(path)-1, "%s/%s", dirname, entry->d_name);
-
-            path[len] = 0;
-
-            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-              continue;
-
-            //printf("%*s[%s]\n", level*2, "", entry->d_name);
-            ff(pid, status, tokens, path, level + 1);
-
+          cout << dirname << "/" << file << "\n";
         }
 
-        else
-        {
-          char* fname = entry->d_name;
-          if(!strcmp(fname, file))
-          {
-            //if(level == 0)
-              cout << absStem << "/" << file << "\n";
-
-          }
-
-        }
+      }
     }
 
-    while (entry = readdir(dir));
-    {
+    closedir(dir);
 
-      ;
 
-    }
- 
-   closedir(dir);
+    if (end == 0)
+      exit(0);
+    
+  }
 
-   //exit(0);
-
-  //}
-
-  //else
-    //wait(&status);
+  else
+    wait(status);
 
 
 }
@@ -133,8 +122,8 @@ void cd(vector<string>* tokens)
 
   else
   {
-   
-     write(1,"Not a directory", 20);
+
+    write(1,"Not a directory", 20);
   }
 
 }
@@ -170,10 +159,10 @@ void ls(pid_t* pid, int* status, vector<string>* tokens) //source used: #2,3
   DIR *dir;
   struct dirent *dp;
 
-  if(pid == 0) //child process
+  if(*pid == 0) //child process
   {
     string path;
-    
+
     // if just ls
     if (tokens->size() == 1)
     {
@@ -183,7 +172,7 @@ void ls(pid_t* pid, int* status, vector<string>* tokens) //source used: #2,3
     {
       path = (*tokens)[1];
     }
-      
+
     // checks if specified argument is a file or nonexistent
     if(isADirectory(&path))
     {
@@ -195,7 +184,7 @@ void ls(pid_t* pid, int* status, vector<string>* tokens) //source used: #2,3
         // create full pathname
         string filename = dp->d_name;
         string working_directory = get_working_dir();
-        
+
         string path = working_directory + "/" + filename;
 
         if (tokens->size() == 2)
@@ -213,19 +202,20 @@ void ls(pid_t* pid, int* status, vector<string>* tokens) //source used: #2,3
         if (mode & S_IRUSR) permissions[1] = 'r';
         if (mode & S_IWUSR) permissions[2] = 'w';
         if (mode & S_IXUSR) permissions[3] = 'x';
-        
+
         if (mode & S_IRGRP) permissions[4] = 'r';
         if (mode & S_IWGRP) permissions[5] = 'w';
         if (mode & S_IXGRP) permissions[6] = 'x';
-        
+
         if (mode & S_IROTH) permissions[7] = 'r';
         if (mode & S_IWOTH) permissions[8] = 'w';
         if (mode & S_IXOTH) permissions[9] = 'x';
-        
-        permissions[10] = '\0';
 
-        cout << permissions << " ";
-        cout << filename << endl;
+        permissions[10] = '\0';
+        write(1, permissions, strlen(permissions));
+        write(1, " ", 1);
+        write(1, filename.c_str(), filename.length());
+        write(1, "\n", 1);
       }
     }
     else
@@ -237,50 +227,49 @@ void ls(pid_t* pid, int* status, vector<string>* tokens) //source used: #2,3
   }
   else
   {
-    int status;
-    //waitpid(pid, &status, WCONTINUED | WUNTRACED);
+    waitpid(*pid, status, WCONTINUED | WUNTRACED);
   }
-  
+
 }
 
 void downHistory(list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index)
 {
 
-   // increment if at beginning of list
-   if (*commands_current_index == 0)
-   {
+  // increment if at beginning of list
+  if (*commands_current_index == 0)
+  {
 
-     (*commands_current_index)++;
+    (*commands_current_index)++;
 
-   }
+  }
 
-   // check if at end of command list (at prompt)
-   if ((int)(*commands).size() == *commands_current_index)
-     write(1, "\a", 1);
-   else
-   {
+  // check if at end of command list (at prompt)
+  if ((int)(*commands).size() == *commands_current_index)
+    write(1, "\a", 1);
+  else
+  {
 
-      // start at beginning of commands list and move to index
-      // move index to the later command
-      list<string>::iterator iter = (*commands).begin();
+    // start at beginning of commands list and move to index
+    // move index to the later command
+    list<string>::iterator iter = (*commands).begin();
 
-      advance(iter, *(commands_current_index));
-      (*commands_current_index)++;
-      
-      for (int i = 0; i < *raw_input_string_index; i++)
-      {
-        write(1, "\b \b", 3);
-      }
-        
-      string raw_command = *iter;
-      string command = raw_command.substr(0, raw_command.size()-1); // source used: #3
-      write(1, command.c_str(), command.size());
-      strcpy(raw_input_string, command.c_str());
-      *raw_input_string_index = command.size();
+    advance(iter, *(commands_current_index));
+    (*commands_current_index)++;
 
-      fflush(stdout);
-
+    for (int i = 0; i < *raw_input_string_index; i++)
+    {
+      write(1, "\b \b", 3);
     }
+
+    string raw_command = *iter;
+    string command = raw_command.substr(0, raw_command.size()-1); // source used: #3
+    write(1, command.c_str(), command.size());
+    strcpy(raw_input_string, command.c_str());
+    *raw_input_string_index = command.size();
+
+    fflush(stdout);
+
+  }
 
 }
 
@@ -291,7 +280,7 @@ void upHistory(list<string>* commands, int* commands_current_index, char *raw_in
   if (commands->size() == 0)
     return;
 
-   // check if any commands in history or if current spot in history is at top
+  // check if any commands in history or if current spot in history is at top
   if (*commands_current_index == 0)
   {
 
@@ -300,8 +289,8 @@ void upHistory(list<string>* commands, int* commands_current_index, char *raw_in
     write(1, "\a", 1);
 
   }
- 
- // start at beginning of commands list and move to one before
+
+  // start at beginning of commands list and move to one before
   // the current index. then move the index to the earlier command
   list<string>::iterator iter = (*commands).begin();
 
@@ -324,11 +313,11 @@ void upHistory(list<string>* commands, int* commands_current_index, char *raw_in
 
 void commandHistory(char* raw_input, list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index)
 {
- 
-   // skip second escape character and check which arrow it is
+
+  // skip second escape character and check which arrow it is
   read(0, raw_input, 1);
   read(0, raw_input, 1);
-      
+
   // Up Arrow => 0x1B 0x5B 0x41
   // Down Arrow => 0x1B 0x5B 0x42
   // source used: #1
@@ -350,11 +339,11 @@ void commandHistory(char* raw_input, list<string>* commands, int* commands_curre
 }
 
 bool processInput(char* raw_input, list<string>* commands, int* commands_current_index,
-                  char* raw_input_string, int* raw_input_string_index, vector<string>* tokens)
+    char* raw_input_string, int* raw_input_string_index, vector<string>* tokens)
 {
   if (*raw_input == 0x1B)
   {
-  
+
     commandHistory(raw_input, commands, commands_current_index, raw_input_string, raw_input_string_index);
     return true;
 
@@ -432,7 +421,7 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
     else
       dirname = (*tokens)[2].c_str();
 
-    ff(&pid, &status, tokens, dirname, 0);
+    ff(&pid, &status, tokens, dirname, 0, 0);
 
   }
 
@@ -463,7 +452,7 @@ void addHistory(list<string>* commands, int* commands_current_index, char* raw_i
 }
 
 bool writeInput(char* raw_input, list<string>* commands, int* commands_current_index,
-                char* raw_input_string, int* raw_input_string_index, vector<string>* tokens)
+    char* raw_input_string, int* raw_input_string_index, vector<string>* tokens)
 {
 
   // write input character out for user to see
@@ -471,14 +460,14 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
 
   //copy char to input string 
   raw_input_string[(*raw_input_string_index)++] = *raw_input;
-  
+
   // on enter, end string and display back to screen
   if (*raw_input == '\n')
   {
 
     raw_input_string[(*raw_input_string_index)] = '\0';
     *tokens = tokenize(raw_input_string);
-  
+
     if (strcmp(raw_input_string, "exit\n") == 0)
       return false;
 
@@ -489,7 +478,7 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
       (*tokens).clear();
 
     }
-    
+
     writePrompt();
 
   }
@@ -542,7 +531,7 @@ void set_non_canonical_mode(int fd, struct termios *savedattributes)
   // make sure stdin is a terminal
   if (!isatty(fd)) 
   {
- 
+
     fprintf (stderr, "Not a terminal.\n");
     exit(0);
 
@@ -574,7 +563,7 @@ void writePrompt()
   {
     working_directory = "/..." + last_folder;
   }
-  
+
   write(1, working_directory.c_str(), working_directory.length());
   write(1, "%", 1);
 
@@ -588,7 +577,7 @@ int main(int argc, char* argv[])
   // set to noncanonical mode, treat input as characters
   // instead of lines ending on newline or EOF
   set_non_canonical_mode(STDIN_FILENO, &SavedTermAttributes);
-  
+
   list<string> commands;
 
   vector<string> tokens;
