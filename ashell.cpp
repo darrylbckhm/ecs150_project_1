@@ -309,6 +309,11 @@ void ls(pid_t* pid, int* status, vector<string>* tokens) //source used: #2,3
 
 void downHistory(list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index)
 {
+  if (commands->size() == 0)
+  {
+    write(1, "\a", 1);
+    return;
+  }
 
   // increment if at beginning of list
   if (*commands_current_index == 0)
@@ -353,7 +358,10 @@ void upHistory(list<string>* commands, int* commands_current_index, char *raw_in
 
   // nothing in commands, exit and do nothing
   if (commands->size() == 0)
+  {
+    write(1, "\a", 1);
     return;
+  }
 
   // check if any commands in history or if current spot in history is at top
   if (*commands_current_index == 0)
