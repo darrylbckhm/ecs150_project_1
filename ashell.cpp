@@ -605,6 +605,8 @@ char readInput(char* raw_input)
       return *raw_input = tmp;
   }
 
+  return *raw_input = tmp;
+
 }
 
 string get_working_dir()
