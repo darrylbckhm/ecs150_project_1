@@ -448,7 +448,7 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
 
   string cmd = (*tokens)[0];
 
-  for(int i = 0; i < (*tokens).size(); i++)
+  for(size_t i = 0; i < (*tokens).size(); i++)
   {
 
     if((*tokens)[i] == "|")
@@ -561,7 +561,7 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
 
       (*redirectTokens) = redirectDelimiter(raw_input_string);
 
-      for(int i = 0; i < (*redirectTokens).size(); i++)
+      for(size_t i = 0; i < (*redirectTokens).size(); i++)
       {
 
         const char* tmp = (*redirectTokens)[i].c_str();
@@ -603,9 +603,9 @@ char readInput(char* raw_input)
       //createPipe(); 
 
       return *raw_input = tmp;
-
   }
 
+  return *raw_input;
 }
 
 string get_working_dir()
