@@ -21,6 +21,70 @@
 
 using namespace std;
 
+vector<string> redirectDelimiter(char* raw_input_string)
+{
+
+  string str = raw_input_string;
+  string buf;
+  istringstream ss(str);
+
+  vector<string> redirectTokens;
+
+  while (getline(ss, buf, '|'))
+  {
+
+    redirectTokens.push_back(buf);
+
+  }
+
+  //cout << redirectTokens[0] << '\n';
+  //cout << redirectTokens[1] << '\n';
+
+  return redirectTokens;
+
+} // tokenizes piped commands
+
+/*void createPipe() //http://tldp.org/LDP/lpg/node11.html
+{
+
+  int fd[2], nbytes;
+  pid_t childpid;
+  char string[] = "Hello, world!\n";
+  char readbuffer[80];
+
+  pipe(fd);
+
+  if((childpid = fork()) == -1)
+  {
+
+    perror("fork");
+    exit(1);
+
+  }
+
+  if(childpid == 0)
+  {
+
+    cout << "Child process\n";
+    close(fd[0]);
+    write(fd[1], string, (strlen(string) + 1));
+    exit(0);
+
+  }
+
+  else
+  {
+
+    cout << "Parent process\n";
+    close(fd[1]);
+    nbytes = read(fd[0], readbuffer, sizeof(readbuffer));
+    printf("Recieved string: %s", readbuffer);
+
+  }
+
+}
+*/
+
 pid_t newChild()
 {
 
@@ -62,7 +126,7 @@ void ff(pid_t* pid, int* status, vector<string>* tokens, const char* dirname, in
     // try to open directory
     if (!(dir = opendir(dirname)))
       return;
-    if (!(entry = readdir(dir)))
+    if (!(entry = readdir(dir))) //if directory is readable
       return;
 
     while ((entry = readdir(dir)) != NULL)
@@ -78,12 +142,12 @@ void ff(pid_t* pid, int* status, vector<string>* tokens, const char* dirname, in
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
           continue;
 
+        // continue to search directory for next file
         ff(pid, status, tokens, path, level + 1, ++end);
         end--; 
-
       }
 
-      else
+      else // if not a directory
       {
         char* fname = entry->d_name;
         if(!strcmp(fname, file))
@@ -111,12 +175,20 @@ void ff(pid_t* pid, int* status, vector<string>* tokens, const char* dirname, in
 void cd(vector<string>* tokens)
 {
 
-  string path = (*tokens)[1];
+  const char* path;
 
-  if(isADirectory(&path))
+  if((*tokens).size() == 1)
+    path = getenv("HOME");
+
+  else
+    path = (*tokens)[1].c_str();
+
+  string tmp = path;
+
+  if(isADirectory(&tmp))
   {
 
-    chdir((*tokens)[1].c_str());
+    chdir(path);
 
   }
 
@@ -137,7 +209,7 @@ bool isADirectory(string* path)
   return S_ISDIR(path_stat.st_mode);
 }
 
-vector<string> tokenize(char* raw_input_string) //source: 4
+vector<string> tokenize(const char* raw_input_string) //source: 4
 {
 
   string str = raw_input_string;
@@ -147,7 +219,11 @@ vector<string> tokenize(char* raw_input_string) //source: 4
   vector<string> tokens;
 
   while (ss >> buf)
+  {
+
     tokens.push_back(buf);
+
+  }
 
   return tokens;
 
@@ -339,7 +415,7 @@ void commandHistory(char* raw_input, list<string>* commands, int* commands_curre
 }
 
 bool processInput(char* raw_input, list<string>* commands, int* commands_current_index,
-    char* raw_input_string, int* raw_input_string_index, vector<string>* tokens)
+                  char* raw_input_string, int* raw_input_string_index, vector<string>* tokens, vector<string>* redirectTokens)
 {
   if (*raw_input == 0x1B)
   {
@@ -362,7 +438,7 @@ bool processInput(char* raw_input, list<string>* commands, int* commands_current
   else
   {
 
-    return writeInput(raw_input, commands, commands_current_index, raw_input_string, raw_input_string_index, tokens);
+    return writeInput(raw_input, commands, commands_current_index, raw_input_string, raw_input_string_index, tokens, redirectTokens);
 
   }
 
@@ -373,10 +449,19 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
 
   string cmd = (*tokens)[0];
 
-  //cout << cmd << '\n';
+  for(int i = 0; i < (*tokens).size(); i++)
+  {
+
+    if((*tokens)[i] == "|")
+    {
+
+      //createChild();
+
+    }
 
   if(cmd == "ls")
   {
+
     pid_t pid;
     pid = newChild();
     int status;
@@ -427,9 +512,8 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
 
   else
     cout << "exec external command";
-
+  }
   (*tokens).clear();
-
 }
 
 void addHistory(list<string>* commands, int* commands_current_index, char* raw_input_string, int* raw_input_string_index)
@@ -452,7 +536,7 @@ void addHistory(list<string>* commands, int* commands_current_index, char* raw_i
 }
 
 bool writeInput(char* raw_input, list<string>* commands, int* commands_current_index,
-    char* raw_input_string, int* raw_input_string_index, vector<string>* tokens)
+                char* raw_input_string, int* raw_input_string_index, vector<string>* tokens, vector<string>* redirectTokens)
 {
 
   // write input character out for user to see
@@ -466,22 +550,35 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
   {
 
     raw_input_string[(*raw_input_string_index)] = '\0';
-    *tokens = tokenize(raw_input_string);
-
+    //*tokens = tokenize(raw_input_string);
+  
     if (strcmp(raw_input_string, "exit\n") == 0)
       return false;
 
     else
     {
+
       addHistory(commands, commands_current_index, raw_input_string, raw_input_string_index);
-      runCommand(raw_input_string, tokens);
-      (*tokens).clear();
 
-    }
+      (*redirectTokens) = redirectDelimiter(raw_input_string);
 
-    writePrompt();
+      for(int i = 0; i < (*redirectTokens).size(); i++)
+      {
+
+        const char* tmp = (*redirectTokens)[i].c_str();
+        (*tokens) = tokenize(tmp);
+
+      }
+
+        runCommand(raw_input_string, tokens);
+        (*tokens).clear();
+
+      }
+ 
+   writePrompt();
 
   }
+    
 
   return true;
 
@@ -501,7 +598,15 @@ char readInput(char* raw_input)
   if(tmp == 0x04)
     exit(0);
   else
+  {
+
+    if(tmp == 0x7C)
+      //createPipe(); 
+
     return *raw_input = tmp;
+
+  }
+
 }
 
 string get_working_dir()
@@ -580,16 +685,19 @@ int main(int argc, char* argv[])
 
   list<string> commands;
 
-  vector<string> tokens;
+  vector<string> tokens, redirectTokens;
+
+  //createPipe(); 
 
   int commands_current_index = 0;
+
   writePrompt();
 
   char raw_input_string[128];
   int raw_input_string_index = 0;
   char raw_input = readInput(&raw_input);
 
-  while(processInput(&raw_input, &commands, &commands_current_index, raw_input_string, &raw_input_string_index, &tokens))
+  while(processInput(&raw_input, &commands, &commands_current_index, raw_input_string, &raw_input_string_index, &tokens, &redirectTokens))
   {
 
     raw_input = readInput(&raw_input);
