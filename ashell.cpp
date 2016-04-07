@@ -45,7 +45,7 @@ vector<string> redirectDelimiter(char* raw_input_string)
 } // tokenizes piped commands
 
 /*void createPipe() //http://tldp.org/LDP/lpg/node11.html
-{
+  {
 
   int fd[2], nbytes;
   pid_t childpid;
@@ -57,33 +57,33 @@ vector<string> redirectDelimiter(char* raw_input_string)
   if((childpid = fork()) == -1)
   {
 
-    perror("fork");
-    exit(1);
+  perror("fork");
+  exit(1);
 
   }
 
   if(childpid == 0)
   {
 
-    cout << "Child process\n";
-    close(fd[0]);
-    write(fd[1], string, (strlen(string) + 1));
-    exit(0);
+  cout << "Child process\n";
+  close(fd[0]);
+  write(fd[1], string, (strlen(string) + 1));
+  exit(0);
 
   }
 
   else
   {
 
-    cout << "Parent process\n";
-    close(fd[1]);
-    nbytes = read(fd[0], readbuffer, sizeof(readbuffer));
-    printf("Recieved string: %s", readbuffer);
+  cout << "Parent process\n";
+  close(fd[1]);
+  nbytes = read(fd[0], readbuffer, sizeof(readbuffer));
+  printf("Recieved string: %s", readbuffer);
 
   }
 
-}
-*/
+  }
+  */
 
 pid_t newChild()
 {
@@ -160,10 +160,9 @@ void ff(pid_t* pid, int* status, vector<string>* tokens, const char* dirname, in
 
     closedir(dir);
 
-
     if (end == 0)
       exit(0);
-    
+
   }
 
   else
@@ -415,7 +414,7 @@ void commandHistory(char* raw_input, list<string>* commands, int* commands_curre
 }
 
 bool processInput(char* raw_input, list<string>* commands, int* commands_current_index,
-                  char* raw_input_string, int* raw_input_string_index, vector<string>* tokens, vector<string>* redirectTokens)
+    char* raw_input_string, int* raw_input_string_index, vector<string>* tokens, vector<string>* redirectTokens)
 {
   if (*raw_input == 0x1B)
   {
@@ -459,59 +458,59 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
 
     }
 
-  if(cmd == "ls")
-  {
+    if(cmd == "ls")
+    {
 
-    pid_t pid;
-    pid = newChild();
-    int status;
-    cout << "exec ls\n";
-    ls(&pid, &status, tokens);
+      pid_t pid;
+      pid = newChild();
+      int status;
+      cout << "exec ls\n";
+      ls(&pid, &status, tokens);
 
-  }
+    }
 
-  else if(cmd == "cd")
-  {
+    else if(cmd == "cd")
+    {
 
-    cout << "exec cd\n";
-    cd(tokens);
+      cout << "exec cd\n";
+      cd(tokens);
 
-  }
+    }
 
-  else if(cmd == "pwd")
-  {
+    else if(cmd == "pwd")
+    {
 
-    pid_t pid;
-    pid = newChild();
-    int status;
+      pid_t pid;
+      pid = newChild();
+      int status;
 
-    cout << "exec pwd\n";
-    pwd(&pid, &status);
+      cout << "exec pwd\n";
+      pwd(&pid, &status);
 
-  }
+    }
 
-  else if(cmd == "ff")
-  {
+    else if(cmd == "ff")
+    {
 
-    pid_t pid;
-    pid = newChild();
-    int status;
+      pid_t pid;
+      pid = newChild();
+      int status;
 
-    cout << "exec ff\n";
+      cout << "exec ff\n";
 
-    const char* dirname;
+      const char* dirname;
 
-    if((*tokens).size() == 2)
-      dirname = ".";
+      if((*tokens).size() == 2)
+        dirname = ".";
+      else
+        dirname = (*tokens)[2].c_str();
+
+      ff(&pid, &status, tokens, dirname, 0, 0);
+
+    }
+
     else
-      dirname = (*tokens)[2].c_str();
-
-    ff(&pid, &status, tokens, dirname, 0, 0);
-
-  }
-
-  else
-    cout << "exec external command";
+      cout << "exec external command";
   }
   (*tokens).clear();
 }
@@ -536,7 +535,7 @@ void addHistory(list<string>* commands, int* commands_current_index, char* raw_i
 }
 
 bool writeInput(char* raw_input, list<string>* commands, int* commands_current_index,
-                char* raw_input_string, int* raw_input_string_index, vector<string>* tokens, vector<string>* redirectTokens)
+    char* raw_input_string, int* raw_input_string_index, vector<string>* tokens, vector<string>* redirectTokens)
 {
 
   // write input character out for user to see
@@ -551,7 +550,7 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
 
     raw_input_string[(*raw_input_string_index)] = '\0';
     //*tokens = tokenize(raw_input_string);
-  
+
     if (strcmp(raw_input_string, "exit\n") == 0)
       return false;
 
@@ -570,15 +569,15 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
 
       }
 
-        runCommand(raw_input_string, tokens);
-        (*tokens).clear();
+      runCommand(raw_input_string, tokens);
+      (*tokens).clear();
 
-      }
- 
-   writePrompt();
+    }
+
+    writePrompt();
 
   }
-    
+
 
   return true;
 
@@ -603,7 +602,7 @@ char readInput(char* raw_input)
     if(tmp == 0x7C)
       //createPipe(); 
 
-    return *raw_input = tmp;
+      return *raw_input = tmp;
 
   }
 
