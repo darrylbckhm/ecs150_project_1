@@ -415,9 +415,9 @@ bool processInput(char* raw_input, list<string>* commands, int* commands_current
 
 }
 
-void runCommand(char* raw_input_string, vector<string>* tokens)
+void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
 {
-
+  vector<string>* tokens = (*all_tokens)[0];
   string cmd = (*tokens)[0];
 
 
@@ -531,7 +531,22 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
 
       }
 
-      runCommand(raw_input_string, tokens);
+      string str1("ls");
+      string str2("grep");
+      string str3("README");
+
+      vector<string> cmd1;
+      cmd1.push_back(str1);
+
+      vector<string> cmd2;
+      cmd2.push_back(str2);
+      cmd2.push_back(str3);
+
+      vector<vector<string>* > tokens2;
+      tokens2.push_back(&cmd1);
+      tokens2.push_back(&cmd2);
+
+      runCommand(raw_input_string, &tokens2);
       (*tokens).clear();
 
     }

@@ -11,7 +11,7 @@ void pwd(pid_t* pid, int* status, vector<string>* tokens);
 void ff(pid_t* pid, int* status, vector<string>* tokens, int level);
 bool isADirectory(string* path);
 void cd(vector<string>* tokens);
-void runCommand(char* raw_input_string);
+void runCommand(char* raw_input_string, vector<vector<string>* >* tokens);
 vector<string> tokenize(const char* raw_input_string);
 void ls(pid_t* pid, int* status, vector<string>* tokens);
 void downHistory(list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index);
