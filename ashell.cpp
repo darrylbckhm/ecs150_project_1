@@ -220,7 +220,11 @@ vector<string> tokenize(const char* raw_input_string) //source: 4
   while (ss >> buf)
   {
 
-    tokens.push_back(buf);
+    //if(str.find_first_of("\\"))
+      //continue;
+
+    //else
+      tokens.push_back(buf);
 
   }
 
@@ -448,6 +452,8 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
 
   string cmd = (*tokens)[0];
 
+  cout << cmd << '\n';
+
   for(size_t i = 0; i < (*tokens).size(); i++)
   {
 
@@ -464,7 +470,6 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
       pid_t pid;
       pid = newChild();
       int status;
-      cout << "exec ls\n";
       ls(&pid, &status, tokens);
 
     }
@@ -472,7 +477,6 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
     else if(cmd == "cd")
     {
 
-      cout << "exec cd\n";
       cd(tokens);
 
     }
@@ -484,7 +488,6 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
       pid = newChild();
       int status;
 
-      cout << "exec pwd\n";
       pwd(&pid, &status);
 
     }
@@ -495,8 +498,6 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
       pid_t pid;
       pid = newChild();
       int status;
-
-      cout << "exec ff\n";
 
       const char* dirname;
 
@@ -510,9 +511,33 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
     }
 
     else
-      cout << "exec external command";
+    {
+
+      pid_t pid;
+      pid = newChild();
+      int status;
+
+      if(pid == 0)
+      {
+
+        char tmp[sizeof(cmd)];
+        strcpy(tmp,cmd.c_str());
+        char* argv[] = {tmp, NULL}; 
+        execvp(argv[0], argv);
+
+      }
+
+      else
+      {
+
+        wait(&status);
+
+      }
+
+    }
   }
-  (*tokens).clear();
+
+  //(*tokens).clear();
 }
 
 void addHistory(list<string>* commands, int* commands_current_index, char* raw_input_string, int* raw_input_string_index)
