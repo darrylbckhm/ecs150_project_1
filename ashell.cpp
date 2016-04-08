@@ -44,46 +44,10 @@ vector<string> redirectDelimiter(char* raw_input_string)
 
 } // tokenizes piped commands
 
-/*void createPipe() //http://tldp.org/LDP/lpg/node11.html
-  {
+void createPipe() //http://tldp.org/LDP/lpg/node11.html
+{
 
-  int fd[2], nbytes;
-  pid_t childpid;
-  char string[] = "Hello, world!\n";
-  char readbuffer[80];
-
-  pipe(fd);
-
-  if((childpid = fork()) == -1)
-  {
-
-  perror("fork");
-  exit(1);
-
-  }
-
-  if(childpid == 0)
-  {
-
-  cout << "Child process\n";
-  close(fd[0]);
-  write(fd[1], string, (strlen(string) + 1));
-  exit(0);
-
-  }
-
-  else
-  {
-
-  cout << "Parent process\n";
-  close(fd[1]);
-  nbytes = read(fd[0], readbuffer, sizeof(readbuffer));
-  printf("Recieved string: %s", readbuffer);
-
-  }
-
-  }
-  */
+}
 
 pid_t newChild()
 {
@@ -456,70 +420,60 @@ void runCommand(char* raw_input_string, vector<string>* tokens)
 
   string cmd = (*tokens)[0];
 
-  for(size_t i = 0; i < (*tokens).size(); i++)
+
+  if(cmd == "ls")
   {
 
-    if((*tokens)[i] == "|")
-    {
+    pid_t pid;
+    pid = newChild();
+    int status;
+    cout << "exec ls\n";
+    ls(&pid, &status, tokens);
 
-      //createChild();
-
-    }
-
-    if(cmd == "ls")
-    {
-
-      pid_t pid;
-      pid = newChild();
-      int status;
-      cout << "exec ls\n";
-      ls(&pid, &status, tokens);
-
-    }
-
-    else if(cmd == "cd")
-    {
-
-      cout << "exec cd\n";
-      cd(tokens);
-
-    }
-
-    else if(cmd == "pwd")
-    {
-
-      pid_t pid;
-      pid = newChild();
-      int status;
-
-      cout << "exec pwd\n";
-      pwd(&pid, &status);
-
-    }
-
-    else if(cmd == "ff")
-    {
-
-      pid_t pid;
-      pid = newChild();
-      int status;
-
-      cout << "exec ff\n";
-
-      const char* dirname;
-
-      if((*tokens).size() == 2)
-        dirname = ".";
-      else
-        dirname = (*tokens)[2].c_str();
-
-      ff(&pid, &status, tokens, dirname, 0, 0);
-
-    }
-
-    else
-      cout << "exec external command";
   }
+
+  else if(cmd == "cd")
+  {
+
+    cout << "exec cd\n";
+    cd(tokens);
+
+  }
+
+  else if(cmd == "pwd")
+  {
+
+    pid_t pid;
+    pid = newChild();
+    int status;
+
+    cout << "exec pwd\n";
+    pwd(&pid, &status);
+
+  }
+
+  else if(cmd == "ff")
+  {
+
+    pid_t pid;
+    pid = newChild();
+    int status;
+
+    cout << "exec ff\n";
+
+    const char* dirname;
+
+    if((*tokens).size() == 2)
+      dirname = ".";
+    else
+      dirname = (*tokens)[2].c_str();
+
+    ff(&pid, &status, tokens, dirname, 0, 0);
+
+  }
+
+  else
+    cout << "exec external command";
   (*tokens).clear();
 }
 
