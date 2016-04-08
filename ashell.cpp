@@ -60,77 +60,62 @@ pid_t newChild()
 void pwd(pid_t* pid, int* status)
 {
 
-  if(*pid == 0)
-  {
-
-    write(1, get_working_dir().c_str(), get_working_dir().size());
-    write(1, "\n", 1);
-
-  }
-
-  else
-    wait(status);
+  write(1, get_working_dir().c_str(), get_working_dir().size());
+  write(1, "\n", 1);
 
 }
 
 void ff(pid_t* pid, int* status, vector<string>* tokens, const char* dirname, int level, int end) //source: http://stackoverflow.com/questions/8436841/how-to-recursively-list-directories-in-c-on-linux
 {
-  if(*pid == 0) //child
+  DIR *dir;
+  struct dirent *entry;
+
+  string absStem;
+
+  if(level == 0)
+    absStem = dirname;
+
+  const char* file = (*tokens)[1].c_str();
+
+  // try to open directory
+  if (!(dir = opendir(dirname)))
+    return;
+  if (!(entry = readdir(dir))) //if directory is readable
+    return;
+
+  while ((entry = readdir(dir)) != NULL)
   {
-    DIR *dir;
-    struct dirent *entry;
-
-    string absStem;
-
-    if(level == 0)
-      absStem = dirname;
-
-    const char* file = (*tokens)[1].c_str();
-
-    // try to open directory
-    if (!(dir = opendir(dirname)))
-      return;
-    if (!(entry = readdir(dir))) //if directory is readable
-      return;
-
-    while ((entry = readdir(dir)) != NULL)
+    if (entry->d_type == DT_DIR) 
     {
-      if (entry->d_type == DT_DIR) 
-      {
-        char path[1024];
+      char path[1024];
 
-        int len = snprintf(path, sizeof(path)-1, "%s/%s", dirname, entry->d_name);
+      int len = snprintf(path, sizeof(path)-1, "%s/%s", dirname, entry->d_name);
 
-        path[len] = 0;
+      path[len] = 0;
 
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-          continue;
+      if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        continue;
 
-        // continue to search directory for next file
-        ff(pid, status, tokens, path, level + 1, ++end);
-        end--; 
-      }
-
-      else // if not a directory
-      {
-        char* fname = entry->d_name;
-        if(!strcmp(fname, file))
-        {
-          cout << dirname << "/" << file << "\n";
-        }
-
-      }
+      // continue to search directory for next file
+      ff(pid, status, tokens, path, level + 1, ++end);
+      end--; 
     }
 
-    closedir(dir);
+    else // if not a directory
+    {
+      char* fname = entry->d_name;
+      if(!strcmp(fname, file))
+      {
+        cout << dirname << "/" << file << "\n";
+      }
 
-    if (end == 0)
-      exit(0);
-
+    }
   }
 
-  else
-    wait(status);
+  closedir(dir);
+
+  if (end == 0)
+    exit(0);
 
 
 }
@@ -196,83 +181,75 @@ vector<string> tokenize(const char* raw_input_string) //source: 4
 
 }
 
-void ls(pid_t* pid, int* status, vector<string>* tokens) //source used: #2,3
+void ls(int* status, vector<string>* tokens) //source used: #2,3
 {
 
   DIR *dir;
   struct dirent *dp;
 
-  if(*pid == 0) //child process
+  string path;
+
+  // if just ls
+  if (tokens->size() == 1)
   {
-    string path;
+    path = ".";
+  }
+  else // if directory specified
+  {
+    path = (*tokens)[1];
+  }
 
-    // if just ls
-    if (tokens->size() == 1)
+  // checks if specified argument is a file or nonexistent
+  if(isADirectory(&path))
+  {
+    dir = opendir(path.c_str());
+
+    // reads dir
+    while((dp = readdir(dir)) != NULL)
     {
-      path = ".";
+      // create full pathname
+      string filename = dp->d_name;
+      string working_directory = get_working_dir();
+
+      string path = working_directory + "/" + filename;
+
+      if (tokens->size() == 2)
+        path =  working_directory + "/" + (*tokens)[1] + "/" + filename;
+
+      // grab permissions info and fill in permissions
+      struct stat file_stats;
+      stat(path.c_str(), &file_stats);
+      mode_t mode = file_stats.st_mode;
+      char permissions[11] = "----------";
+
+      if (S_ISDIR(mode)) permissions[0] = 'd';
+
+      // using source: #4
+      if (mode & S_IRUSR) permissions[1] = 'r';
+      if (mode & S_IWUSR) permissions[2] = 'w';
+      if (mode & S_IXUSR) permissions[3] = 'x';
+
+      if (mode & S_IRGRP) permissions[4] = 'r';
+      if (mode & S_IWGRP) permissions[5] = 'w';
+      if (mode & S_IXGRP) permissions[6] = 'x';
+
+      if (mode & S_IROTH) permissions[7] = 'r';
+      if (mode & S_IWOTH) permissions[8] = 'w';
+      if (mode & S_IXOTH) permissions[9] = 'x';
+
+      permissions[10] = '\0';
+      write(1, permissions, strlen(permissions));
+      write(1, " ", 1);
+      write(1, filename.c_str(), filename.length());
+      write(1, "\n", 1);
     }
-    else // if directory specified
-    {
-      path = (*tokens)[1];
-    }
-
-    // checks if specified argument is a file or nonexistent
-    if(isADirectory(&path))
-    {
-      dir = opendir(path.c_str());
-
-      // reads dir
-      while((dp = readdir(dir)) != NULL)
-      {
-        // create full pathname
-        string filename = dp->d_name;
-        string working_directory = get_working_dir();
-
-        string path = working_directory + "/" + filename;
-
-        if (tokens->size() == 2)
-          path =  working_directory + "/" + (*tokens)[1] + "/" + filename;
-
-        // grab permissions info and fill in permissions
-        struct stat file_stats;
-        stat(path.c_str(), &file_stats);
-        mode_t mode = file_stats.st_mode;
-        char permissions[11] = "----------";
-
-        if (S_ISDIR(mode)) permissions[0] = 'd';
-
-        // using source: #4
-        if (mode & S_IRUSR) permissions[1] = 'r';
-        if (mode & S_IWUSR) permissions[2] = 'w';
-        if (mode & S_IXUSR) permissions[3] = 'x';
-
-        if (mode & S_IRGRP) permissions[4] = 'r';
-        if (mode & S_IWGRP) permissions[5] = 'w';
-        if (mode & S_IXGRP) permissions[6] = 'x';
-
-        if (mode & S_IROTH) permissions[7] = 'r';
-        if (mode & S_IWOTH) permissions[8] = 'w';
-        if (mode & S_IXOTH) permissions[9] = 'x';
-
-        permissions[10] = '\0';
-        write(1, permissions, strlen(permissions));
-        write(1, " ", 1);
-        write(1, filename.c_str(), filename.length());
-        write(1, "\n", 1);
-      }
-    }
-    else
-    {
-      cout << "Not a directory\n";
-    }
-
-    exit(0);
   }
   else
   {
-    waitpid(*pid, status, WCONTINUED | WUNTRACED);
+    cout << "Not a directory\n";
   }
 
+  exit(0);
 }
 
 void downHistory(list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index)
@@ -421,77 +398,126 @@ bool processInput(char* raw_input, list<string>* commands, int* commands_current
 
 void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
 {
-  vector<string>* tokens = (*all_tokens)[0];
-  string cmd = (*tokens)[0];
+  // calculate pipes and children
+  int num_children = all_tokens->size();
+  int num_pipes = num_children - 1;
 
-  if(cmd == "ls")
+  // create pipes and add to array
+  int pipes[num_pipes][2];
+  for (int i = 0; i < num_pipes; i++)
   {
-    pid_t pid;
-    pid = newChild();
-    int status;
-    cout << "exec ls\n";
-    ls(&pid, &status, tokens);
-
+    int fd[2];
+    pipe(fd);
+    pipes[i][0] = fd[0];
+    pipes[i][1] = fd[1];
   }
 
-  else if(cmd == "cd")
+  // iterate through command and fork each
+  int child_num = 0;
+  vector<vector<string> *>::iterator itr;
+  for (itr = all_tokens->begin(); itr != all_tokens->end(); itr++)
   {
 
-    cd(tokens);
+    vector<string>* tokens = *itr;
+    string cmd = (*tokens)[0];
 
-  }
+    if(cmd == "ls")
+    {
+      cout << "child_num: " << child_num << endl;
+      pid_t pid;
+      pid = newChild();
 
-  else if(cmd == "pwd")
-  {
+      int status;
+      if (pid == 0)
+      {
+        if (child_num == 0)
+        {
+          cout << "a" << endl;
+          dup2(1, pipes[0][1]);
+        }
+        child_num++;
 
-    pid_t pid;
-    pid = newChild();
-    int status;
-    pwd(&pid, &status);
+        cout << "exec ls\n";
+        ls(&status, tokens);
+      }
+      else
+        waitpid(pid, &status, WCONTINUED | WUNTRACED);
 
-  }
+    }
 
-  else if(cmd == "ff")
-  {
-
-    pid_t pid;
-    pid = newChild();
-    int status;
-
-    const char* dirname;
-
-    if((*tokens).size() == 2)
-      dirname = ".";
-    else
-      dirname = (*tokens)[2].c_str();
-
-    ff(&pid, &status, tokens, dirname, 0, 0);
-  }
-
-  else
-  {
-
-    pid_t pid;
-    pid = newChild();
-    int status;
-
-    if(pid == 0)
+    else if(cmd == "cd")
     {
 
-      char tmp[sizeof(cmd)];
-      strcpy(tmp,cmd.c_str());
-      char* argv[] = {tmp, NULL}; 
-      execvp(argv[0], argv);
+      cd(tokens);
 
+    }
+
+    else if(cmd == "pwd")
+    {
+
+      pid_t pid;
+      pid = newChild();
+
+      int status;
+      if (pid == 0)
+      {
+        child_num++;
+        pwd(&pid, &status);
+      }
+      else
+        waitpid(pid, &status, WCONTINUED | WUNTRACED);
+
+    }
+
+    else if(cmd == "ff")
+    {
+
+      pid_t pid;
+      pid = newChild();
+      child_num++;
+      int status;
+
+      const char* dirname;
+
+      if((*tokens).size() == 2)
+        dirname = ".";
+      else
+        dirname = (*tokens)[2].c_str();
+
+      if (pid == 0)
+      {
+        ff(&pid, &status, tokens, dirname, 0, 0);
+      }
+      else
+        waitpid(pid, &status, WCONTINUED | WUNTRACED);
     }
 
     else
     {
 
-      wait(&status);
+      pid_t pid;
+      pid = newChild();
+      child_num++;
+      int status;
+
+      if(pid == 0)
+      {
+
+        char tmp[sizeof(cmd)];
+        strcpy(tmp,cmd.c_str());
+        char* argv[] = {tmp, NULL}; 
+        execvp(argv[0], argv);
+
+      }
+
+      else
+      {
+
+        wait(&status);
+
+      }
 
     }
-
   }
 }
 
@@ -549,7 +575,7 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
 
       }
 
-      string str1("ls");
+      /*string str1("ls");
       string str2("grep");
       string str3("README");
 
@@ -562,7 +588,9 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
 
       vector<vector<string>* > tokens2;
       tokens2.push_back(&cmd1);
-      tokens2.push_back(&cmd2);
+      tokens2.push_back(&cmd2);*/
+      vector<vector<string>* > tokens2;
+      tokens2.push_back(tokens);
 
       runCommand(raw_input_string, &tokens2);
       (*tokens).clear();

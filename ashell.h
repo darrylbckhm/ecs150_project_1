@@ -13,7 +13,7 @@ bool isADirectory(string* path);
 void cd(vector<string>* tokens);
 void runCommand(char* raw_input_string, vector<vector<string>* >* tokens);
 vector<string> tokenize(const char* raw_input_string);
-void ls(pid_t* pid, int* status, vector<string>* tokens);
+void ls(int* status, vector<string>* tokens);
 void downHistory(list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index);
 void upHistory(list<string>* commands, int* commands_current_index, char* raw_input_string, int* raw_input_string_index);
 void commandHistory(char* raw_input, list<string>* commands, int* commands_current_index, char *raw_input_string, int* raw_input_string_index);
