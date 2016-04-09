@@ -402,15 +402,26 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
   int num_children = all_tokens->size();
   int num_pipes = num_children - 1;
 
+  cout << "num_pipes: " << num_pipes << endl;
+
   // create pipes and add to array
   int pipes[num_pipes][2];
   for (int i = 0; i < num_pipes; i++)
   {
     int fd[2];
     pipe(fd);
+    cout << "fd[0]: " << fd[0] << endl;
+    cout << "fd[1]: " << fd[1] << endl;
     pipes[i][0] = fd[0];
     pipes[i][1] = fd[1];
   }
+    
+  cout << "pipes[0][0]: " << pipes[0][0] << endl;
+  cout << "pipes[0][1]: " << pipes[0][1] << endl;
+
+  int fd2[2];
+  pipe(fd2);
+
 
   // iterate through command and fork each
   int child_num = 0;
@@ -430,15 +441,13 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
       int status;
       if (pid == 0)
       {
-        if (child_num == 0)
-        {
-          cout << "a" << endl;
-          dup2(1, pipes[0][1]);
-        }
+        cout << "a" << endl;
+        //dup2(1, pipes[0][1]);
+        write(fd2[1], "hello\n", 6);
+
         child_num++;
 
-        cout << "exec ls\n";
-        ls(&status, tokens);
+        //ls(&status, tokens);
       }
       else
         waitpid(pid, &status, WCONTINUED | WUNTRACED);
@@ -502,11 +511,24 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
 
       if(pid == 0)
       {
+        cout << "b" << endl;
+        //dup2(0, pipes[0][0]);
+        dup2(0, fd2[0]);
+        child_num++;
 
-        char tmp[sizeof(cmd)];
-        strcpy(tmp,cmd.c_str());
-        char* argv[] = {tmp, NULL}; 
+        char* argv[tokens->size() + 1];
+
+        for (size_t i = 0; i < tokens->size(); i++)
+        {
+          argv[i] = (char *)malloc(sizeof((*tokens)[i]) + 1);
+          strcpy(argv[i], (*tokens)[i].c_str());
+        }
+
+        argv[tokens->size()] = NULL;
+
         execvp(argv[0], argv);
+
+        exit(0);
 
       }
 
@@ -575,6 +597,7 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
 
       }
 
+      // for testing
       /*string str1("ls");
       string str2("grep");
       string str3("README");
@@ -589,6 +612,8 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
       vector<vector<string>* > tokens2;
       tokens2.push_back(&cmd1);
       tokens2.push_back(&cmd2);*/
+
+      // to use for old tokenize
       vector<vector<string>* > tokens2;
       tokens2.push_back(tokens);
 
