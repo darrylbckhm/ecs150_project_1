@@ -794,7 +794,7 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
 
       bool redirect_output = false;
       string output_file = "log.txt";
-      bool redirect_input = true;
+      bool redirect_input = false;
       string input_file = "README";
       runCommand(raw_input_string, all_tokens, redirect_output, output_file, redirect_input, input_file);
       (*all_tokens).clear();
