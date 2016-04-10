@@ -402,7 +402,8 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
   int num_children = all_tokens->size();
   int num_pipes = num_children - 1;
 
-  cout << "num_pipes: " << num_pipes << endl;
+  cout << "num_children: " << num_children << endl;
+  cout << "num_pipes: " << num_pipes << endl << endl;
 
   // create pipes and add to array
   int pipes[num_pipes][2];
@@ -410,19 +411,10 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
   {
     int fd[2];
     pipe(fd);
-    cout << "fd[0]: " << fd[0] << endl;
-    cout << "fd[1]: " << fd[1] << endl;
     pipes[i][0] = fd[0];
     pipes[i][1] = fd[1];
   }
     
-  cout << "pipes[0][0]: " << pipes[0][0] << endl;
-  cout << "pipes[0][1]: " << pipes[0][1] << endl;
-
-  int fd2[2];
-  pipe(fd2);
-
-
   // iterate through command and fork each
   int child_num = 0;
   vector<vector<string> *>::iterator itr;
@@ -434,23 +426,48 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
 
     if(cmd == "ls")
     {
-      cout << "child_num: " << child_num << endl;
+
       pid_t pid;
       pid = newChild();
+
 
       int status;
       if (pid == 0)
       {
-        cout << "a" << endl;
-        //dup2(1, pipes[0][1]);
-        write(fd2[1], "hello\n", 6);
+        cout << "child_num: " << child_num << endl;
+        if (num_pipes > 0)
+        {
+          if (child_num == 0)
+          {
+            dup2(pipes[0][1], 1);
+            close(pipes[0][0]);
+            close(pipes[0][1]);
+          }
+          else
+          {
+            dup2(pipes[child_num-1][0], 0);
+            if (child_num != num_children - 1)
+            {
+              cout << "a" << endl;
+              dup2(pipes[child_num][1], 1);
+              close(pipes[child_num][1]);
+            }
+            else
+            {
+              close(pipes[child_num-1][1]);
+            }
 
-        child_num++;
+            close(pipes[child_num-1][0]);
+          }
+        }
 
-        //ls(&status, tokens);
+        ls(&status, tokens);
       }
       else
+      {
+        child_num++;
         waitpid(pid, &status, WCONTINUED | WUNTRACED);
+      }
 
     }
 
@@ -506,15 +523,42 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
 
       pid_t pid;
       pid = newChild();
-      child_num++;
       int status;
 
       if(pid == 0)
       {
-        cout << "b" << endl;
-        //dup2(0, pipes[0][0]);
-        dup2(0, fd2[0]);
-        child_num++;
+        cout << "child_num: " << child_num << endl;
+        cout << "cmd: " << cmd << endl;
+        cout << "arg: " << (*tokens)[1] << endl;
+
+        if (num_pipes > 0)
+        {
+          if (child_num == 0)
+          {
+            dup2(pipes[0][1], 1);
+            
+            close(pipes[0][0]);
+            close(pipes[0][1]);
+          }
+          else
+          {
+            dup2(pipes[child_num-1][0], 0);
+
+            if (child_num != num_children - 1)
+            {
+              cout << "b" << endl;
+              dup2(pipes[child_num][1], 1);
+              close(pipes[child_num][1]);
+            }
+            else
+            {
+              close(pipes[child_num-1][1]);
+            }
+
+            close(pipes[child_num-1][0]);
+
+          }
+        }
 
         char* argv[tokens->size() + 1];
 
@@ -526,6 +570,7 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
 
         argv[tokens->size()] = NULL;
 
+
         execvp(argv[0], argv);
 
         exit(0);
@@ -534,13 +579,18 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
 
       else
       {
-
-        wait(&status);
+        child_num++;
 
       }
 
     }
   }
+  close(pipes[0][0]);
+  close(pipes[0][1]);
+  close(pipes[1][0]);
+  close(pipes[1][1]);
+  int status2;
+  wait(&status2);
 }
 
 void addHistory(list<string>* commands, int* commands_current_index, char* raw_input_string, int* raw_input_string_index)
@@ -598,24 +648,33 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
       }
 
       // for testing
-      /*string str1("ls");
-      string str2("grep");
-      string str3("README");
+      string str1("cat");
+      string str2("README");
+      string str3("grep");
+      string str4("Name");
+      string str5("grep");
+      string str6("Reuben");
 
       vector<string> cmd1;
       cmd1.push_back(str1);
+      cmd1.push_back(str2);
 
       vector<string> cmd2;
-      cmd2.push_back(str2);
       cmd2.push_back(str3);
+      cmd2.push_back(str4);
+
+      vector<string> cmd3;
+      cmd3.push_back(str5);
+      cmd3.push_back(str6);
 
       vector<vector<string>* > tokens2;
       tokens2.push_back(&cmd1);
-      tokens2.push_back(&cmd2);*/
+      tokens2.push_back(&cmd2);
+      tokens2.push_back(&cmd3);
 
       // to use for old tokenize
-      vector<vector<string>* > tokens2;
-      tokens2.push_back(tokens);
+      /*vector<vector<string>* > tokens2;
+      tokens2.push_back(tokens);*/
 
       runCommand(raw_input_string, &tokens2);
       (*tokens).clear();
