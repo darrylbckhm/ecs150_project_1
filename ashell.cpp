@@ -9,6 +9,7 @@
 #include <list>
 #include <iterator>
 #include <dirent.h>
+#include <fcntl.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -396,7 +397,7 @@ bool processInput(char* raw_input, list<string>* commands, int* commands_current
 
 }
 
-void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
+void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens, bool redirect_output, string output_file, bool redirect_input, string input_file)
 {
   // calculate pipes and children
   int num_children = all_tokens->size();
@@ -414,7 +415,7 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
     pipes[i][0] = fd[0];
     pipes[i][1] = fd[1];
   }
-    
+
   // iterate through command and fork each
   int child_num = 0;
   vector<vector<string> *>::iterator itr;
@@ -424,141 +425,85 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
     vector<string>* tokens = *itr;
     string cmd = (*tokens)[0];
 
-    if(cmd == "ls")
+    pid_t pid;
+    pid = newChild();
+
+    int status;
+    if (pid == 0)
     {
-
-      pid_t pid;
-      pid = newChild();
-
-
-      int status;
-      if (pid == 0)
+      if (num_pipes > 0)
       {
-        cout << "child_num: " << child_num << endl;
-        if (num_pipes > 0)
+        if (child_num == 0)
         {
-          if (child_num == 0)
+          if (redirect_input)
           {
-            dup2(pipes[0][1], 1);
-            close(pipes[0][0]);
-            close(pipes[0][1]);
+            int fd = open(input_file.c_str(), O_RDONLY);
+            dup2(fd, 0);
+            close(fd);
+          }
+
+          dup2(pipes[0][1], 1);
+          close(pipes[0][0]);
+          close(pipes[0][1]);
+        }
+        else
+        {
+          dup2(pipes[child_num-1][0], 0);
+          if (child_num != num_children - 1)
+          {
+            dup2(pipes[child_num][1], 1);
+            close(pipes[child_num][1]);
           }
           else
           {
-            dup2(pipes[child_num-1][0], 0);
-            if (child_num != num_children - 1)
+            if (redirect_output)
             {
-              cout << "a" << endl;
-              dup2(pipes[child_num][1], 1);
-              close(pipes[child_num][1]);
-            }
-            else
-            {
-              close(pipes[child_num-1][1]);
+              int fd = open(output_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+              dup2(fd, 1);
+              close(fd);
             }
 
-            close(pipes[child_num-1][0]);
+            close(pipes[child_num-1][1]);
           }
-        }
 
+          close(pipes[child_num-1][0]);
+        }
+      }
+
+
+      if(cmd == "ls")
+      {
+        cout << "child_num: " << child_num << endl;
         ls(&status, tokens);
       }
-      else
+
+      else if(cmd == "cd")
       {
-        child_num++;
-        waitpid(pid, &status, WCONTINUED | WUNTRACED);
+        cd(tokens);
       }
 
-    }
-
-    else if(cmd == "cd")
-    {
-
-      cd(tokens);
-
-    }
-
-    else if(cmd == "pwd")
-    {
-
-      pid_t pid;
-      pid = newChild();
-
-      int status;
-      if (pid == 0)
+      else if(cmd == "pwd")
       {
-        child_num++;
         pwd(&pid, &status);
       }
-      else
-        waitpid(pid, &status, WCONTINUED | WUNTRACED);
 
-    }
-
-    else if(cmd == "ff")
-    {
-
-      pid_t pid;
-      pid = newChild();
-      child_num++;
-      int status;
-
-      const char* dirname;
-
-      if((*tokens).size() == 2)
-        dirname = ".";
-      else
-        dirname = (*tokens)[2].c_str();
-
-      if (pid == 0)
+      else if(cmd == "ff")
       {
+        const char* dirname;
+
+        if((*tokens).size() == 2)
+          dirname = ".";
+        else
+          dirname = (*tokens)[2].c_str();
+
         ff(&pid, &status, tokens, dirname, 0, 0);
       }
+
       else
-        waitpid(pid, &status, WCONTINUED | WUNTRACED);
-    }
-
-    else
-    {
-
-      pid_t pid;
-      pid = newChild();
-      int status;
-
-      if(pid == 0)
       {
-        cout << "child_num: " << child_num << endl;
-        cout << "cmd: " << cmd << endl;
-        cout << "arg: " << (*tokens)[1] << endl;
-
-        if (num_pipes > 0)
-        {
-          if (child_num == 0)
-          {
-            dup2(pipes[0][1], 1);
-            
-            close(pipes[0][0]);
-            close(pipes[0][1]);
-          }
-          else
-          {
-            dup2(pipes[child_num-1][0], 0);
-
-            if (child_num != num_children - 1)
-            {
-              cout << "b" << endl;
-              dup2(pipes[child_num][1], 1);
-              close(pipes[child_num][1]);
-            }
-            else
-            {
-              close(pipes[child_num-1][1]);
-            }
-
-            close(pipes[child_num-1][0]);
-
-          }
-        }
+        cerr << "child_num: " << child_num << endl;
+        cerr << "cmd: " << cmd << endl;
+        cerr << "arg: " << (*tokens)[1] << endl;
 
         char* argv[tokens->size() + 1];
 
@@ -570,25 +515,25 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
 
         argv[tokens->size()] = NULL;
 
-
         execvp(argv[0], argv);
 
         exit(0);
 
       }
+    }
 
-      else
-      {
-        child_num++;
-
-      }
-
+    else
+    {
+      child_num++;
     }
   }
-  close(pipes[0][0]);
-  close(pipes[0][1]);
-  close(pipes[1][0]);
-  close(pipes[1][1]);
+
+  for (int i = 0; i < num_pipes; i++)
+  {
+    close(pipes[i][0]);
+    close(pipes[i][1]);
+  }
+
   int status2;
   wait(&status2);
 }
@@ -653,7 +598,7 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
       string str3("grep");
       string str4("Name");
       string str5("grep");
-      string str6("Reuben");
+      string str6("Name");
 
       vector<string> cmd1;
       cmd1.push_back(str1);
@@ -674,9 +619,13 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
 
       // to use for old tokenize
       /*vector<vector<string>* > tokens2;
-      tokens2.push_back(tokens);*/
+        tokens2.push_back(tokens);*/
 
-      runCommand(raw_input_string, &tokens2);
+      bool redirect_output = false;
+      string output_file = "log.txt";
+      bool redirect_input = false;
+      string input_file = "README";
+      runCommand(raw_input_string, &tokens2, redirect_output, output_file, redirect_input, input_file);
       (*tokens).clear();
 
     }
