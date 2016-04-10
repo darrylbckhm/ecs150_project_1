@@ -580,10 +580,13 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, boo
     pid = newChild();
 
     int status;
+    // if child
     if (pid == 0)
     {
+      // if more than one pipe
       if (num_pipes > 0)
       {
+        // if first command, hook up to first pipe
         if (child_num == 0)
         {
           if (redirect_input)
@@ -597,6 +600,7 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, boo
           close(pipes[0][0]);
           close(pipes[0][1]);
         }
+        // else hook up to pipe before and after
         else
         {
           dup2(pipes[child_num-1][0], 0);
@@ -618,6 +622,21 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, boo
           }
 
           close(pipes[child_num-1][0]);
+        }
+      }
+      else
+      {
+        if (redirect_input)
+        {
+          int fd = open(input_file.c_str(), O_RDONLY);
+          dup2(fd, 0);
+          close(fd);
+        }
+        if (redirect_output)
+        {
+          int fd = open(output_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+          dup2(fd, 1);
+          close(fd);
         }
       }
 
@@ -653,7 +672,8 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, boo
       {
         cerr << "child_num: " << child_num << endl;
         cerr << "cmd: " << cmd << endl;
-        cerr << "arg: " << tokens[1] << endl;
+        if (tokens.size() > 1)
+          cerr << "arg: " << tokens[1] << endl;
 
         char* argv[tokens.size() + 1];
 
@@ -774,7 +794,7 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
 
       bool redirect_output = false;
       string output_file = "log.txt";
-      bool redirect_input = false;
+      bool redirect_input = true;
       string input_file = "README";
       runCommand(raw_input_string, all_tokens, redirect_output, output_file, redirect_input, input_file);
       (*all_tokens).clear();
