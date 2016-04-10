@@ -21,28 +21,121 @@
 
 using namespace std;
 
-vector<string> redirectDelimiter(char* raw_input_string)
+string formatString(char* raw_input_string)
 {
 
   string str = raw_input_string;
   string buf;
   istringstream ss(str);
 
-  vector<string> redirectTokens;
+  //loop through raw input to add spaces where necessary
+  //all code from here to the second while loop is of similar format
 
-  while (getline(ss, buf, '|'))
+  size_t pos = str.find_first_of("|"); //index of first pipe character found
+
+  while (pos != string::npos)
   {
 
-    redirectTokens.push_back(buf);
+    if(str[pos - 1] != ' ') //if the character before the pipe isn't a space
+    {
+
+      str.insert(pos, " "); //add a space before the pipe
+      ++pos; //increment back to current pipe index
+
+    }
+
+    if(str[pos + 1] != ' ') //if the character after the pipe isn't a space
+    {
+
+      str.insert(pos + 1, " "); //add a space after the pipe
+      pos = str.find_first_of("|", pos + 2); //search string for another pipe
+      continue;
+ 
+    }
+
+    pos = str.find_first_of("|", pos + 1); //if there are spaces, search for another pipe
 
   }
 
-  //cout << redirectTokens[0] << '\n';
-  //cout << redirectTokens[1] << '\n';
+  pos = str.find_first_of("<");
 
-  return redirectTokens;
+  while (pos != string::npos)
+  {
 
-} // tokenizes piped commands
+    if(str[pos - 1] != ' ')
+    {
+
+      str.insert(pos, " ");
+      ++pos;
+
+    }
+
+    if(str[pos + 1] != ' ')
+    {
+
+      str.insert(pos + 1, " ");
+      pos = str.find_first_of("<", pos + 2);
+
+    }
+
+    pos = str.find_first_of('<', pos + 1);
+
+  }
+
+  pos = str.find_first_of(">");
+
+  while (pos != string::npos)
+  {
+
+    if(str[pos - 1] != ' ')
+    {
+
+      str.insert(pos, " ");
+      ++pos;
+
+    }
+
+    if(str[pos + 1] != ' ')
+    {
+
+      str.insert(pos + 1, " ");
+      pos = str.find_first_of(">", pos + 2);
+
+    }
+
+    pos = str.find_first_of('>', pos + 1);
+
+  }
+
+  pos = str.find_first_of("\\");
+
+  while (pos != string::npos)
+  {
+
+    if(str[pos - 1] != ' ')
+    {
+
+      str.insert(pos, " ");
+      ++pos;
+
+    }
+
+    if(str[pos + 1] != ' ')
+    {
+
+      str.insert(pos + 1, " ");
+      pos = str.find_first_of("\\", pos + 2);
+
+    }
+
+    pos = str.find_first_of('\\', pos + 1);
+
+  }
+  //cout << str << '\n';
+
+  return str;
+
+} // formats string to be parsed by spaces 
 
 void createPipe() //http://tldp.org/LDP/lpg/node11.html
 {
@@ -65,7 +158,7 @@ void pwd(pid_t* pid, int* status)
 
 }
 
-void ff(pid_t* pid, int* status, vector<string>* tokens, const char* dirname, int level, int end) //source: http://stackoverflow.com/questions/8436841/how-to-recursively-list-directories-in-c-on-linux
+void ff(pid_t* pid, int* status, vector<string> cmdStr, const char* dirname, int level, int end) //source: http://stackoverflow.com/questions/8436841/how-to-recursively-list-directories-in-c-on-linux
 {
   DIR *dir;
   struct dirent *entry;
@@ -75,7 +168,7 @@ void ff(pid_t* pid, int* status, vector<string>* tokens, const char* dirname, in
   if(level == 0)
     absStem = dirname;
 
-  const char* file = (*tokens)[1].c_str();
+  const char* file = cmdStr[1].c_str();
 
   // try to open directory
   if (!(dir = opendir(dirname)))
@@ -97,7 +190,7 @@ void ff(pid_t* pid, int* status, vector<string>* tokens, const char* dirname, in
         continue;
 
       // continue to search directory for next file
-      ff(pid, status, tokens, path, level + 1, ++end);
+      ff(pid, status, cmdStr, path, level + 1, ++end);
       end--; 
     }
 
@@ -120,16 +213,16 @@ void ff(pid_t* pid, int* status, vector<string>* tokens, const char* dirname, in
 
 }
 
-void cd(vector<string>* tokens)
+void cd(vector<string> cmdStr)
 {
 
   const char* path;
 
-  if((*tokens).size() == 1)
+  if(cmdStr.size() == 1)
     path = getenv("HOME");
 
   else
-    path = (*tokens)[1].c_str();
+    path = cmdStr[1].c_str();
 
   string tmp = path;
 
@@ -157,31 +250,86 @@ bool isADirectory(string* path)
   return S_ISDIR(path_stat.st_mode);
 }
 
-vector<string> tokenize(const char* raw_input_string) //source: 4
+vector<vector<string> >* tokenize(string formattedString, vector<vector<string> >* all_tokens) //source: 4
 {
 
-  string str = raw_input_string;
-  string buf;
-  stringstream ss(str);
+  //vector<vector<string> > all_tokens;
 
-  vector<string> tokens;
+  vector<string> cmdTokens;
+    
+  //size_t pos = 0;
 
-  while (ss >> buf)
+  const char* str = formattedString.c_str();
+  size_t size = sizeof(char) * (strlen(str) - 1); // variable for the size of formattedString
+  char cstr[size]; // char array to hold formattedString
+
+  memcpy(cstr, str, size); // copy bytes from str to the new array
+
+  bool escape = false; // true when escape character is seen
+  int numPipes = 0;
+  int numRedir = 0;
+  char* token;
+
+  token = strtok(cstr, " ");
+
+  while(token != NULL)
   {
 
-    //if(str.find_first_of("\\"))
-    //continue;
+    string tmp = token;
 
-    //else
-    tokens.push_back(buf);
+    if(tmp.compare("\\") == 0) // if a backslash is found, set escape to true
+    {
+
+      escape = true;
+
+    }
+
+    else if(escape) //if escape is true add a space and the current token to the last element of cmdTokens
+    {
+
+      cmdTokens.back().append(" ");
+      cmdTokens.back().append(tmp);
+      escape = false; //set escape to false for next token
+
+    }
+
+    else if(tmp.compare("|") == 0) //if there is a pipe add this command vector to the vector of vectors
+    {
+
+      ++numPipes;
+      all_tokens->push_back(cmdTokens);
+      cmdTokens.clear(); //clear vector for next command string
+
+    }
+
+    else if(tmp.compare("<") == 0 || tmp.compare(">") == 0)
+    {
+
+      ++numRedir;
+      all_tokens->push_back(cmdTokens);
+      cmdTokens.clear();
+
+    }
+
+    else //otherwise, add this token to the current command vector
+      cmdTokens.push_back(tmp);
+
+    token = strtok(NULL, " ");
 
   }
 
-  return tokens;
+  all_tokens->push_back(cmdTokens);
+  cmdTokens.clear();
+
+  //for(size_t i = 0; i < all_tokens->size(); i++)
+    //for(size_t j = 0; j < all_tokens[i].size(); j++)
+      //cout << (*all_tokens)[i][j] << endl;
+
+  return all_tokens;
 
 }
 
-void ls(int* status, vector<string>* tokens) //source used: #2,3
+void ls(int* status, vector<string> cmdStr) //source used: #2,3
 {
 
   DIR *dir;
@@ -190,13 +338,13 @@ void ls(int* status, vector<string>* tokens) //source used: #2,3
   string path;
 
   // if just ls
-  if (tokens->size() == 1)
+  if (cmdStr.size() == 1)
   {
     path = ".";
   }
   else // if directory specified
   {
-    path = (*tokens)[1];
+    path = cmdStr[1];
   }
 
   // checks if specified argument is a file or nonexistent
@@ -213,8 +361,8 @@ void ls(int* status, vector<string>* tokens) //source used: #2,3
 
       string path = working_directory + "/" + filename;
 
-      if (tokens->size() == 2)
-        path =  working_directory + "/" + (*tokens)[1] + "/" + filename;
+      if (cmdStr.size() == 2)
+        path =  working_directory + "/" + cmdStr[1] + "/" + filename;
 
       // grab permissions info and fill in permissions
       struct stat file_stats;
@@ -367,7 +515,7 @@ void commandHistory(char* raw_input, list<string>* commands, int* commands_curre
 }
 
 bool processInput(char* raw_input, list<string>* commands, int* commands_current_index,
-    char* raw_input_string, int* raw_input_string_index, vector<string>* tokens, vector<string>* redirectTokens)
+    char* raw_input_string, int* raw_input_string_index, vector<vector<string> >* all_tokens, vector<string>* redirectTokens)
 {
   if (*raw_input == 0x1B)
   {
@@ -390,13 +538,13 @@ bool processInput(char* raw_input, list<string>* commands, int* commands_current
   else
   {
 
-    return writeInput(raw_input, commands, commands_current_index, raw_input_string, raw_input_string_index, tokens, redirectTokens);
+    return writeInput(raw_input, commands, commands_current_index, raw_input_string, raw_input_string_index, all_tokens, redirectTokens);
 
   }
 
 }
 
-void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
+void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens)
 {
   // calculate pipes and children
   int num_children = all_tokens->size();
@@ -425,12 +573,12 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
 
   // iterate through command and fork each
   int child_num = 0;
-  vector<vector<string> *>::iterator itr;
+  vector<vector<string> >::iterator itr;
   for (itr = all_tokens->begin(); itr != all_tokens->end(); itr++)
   {
 
-    vector<string>* tokens = *itr;
-    string cmd = (*tokens)[0];
+    vector<string> tokens = *itr;
+    string cmd = tokens[0];
 
     if(cmd == "ls")
     {
@@ -488,10 +636,10 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
 
       const char* dirname;
 
-      if((*tokens).size() == 2)
+      if(tokens.size() == 2)
         dirname = ".";
       else
-        dirname = (*tokens)[2].c_str();
+        dirname = tokens[2].c_str();
 
       if (pid == 0)
       {
@@ -512,19 +660,19 @@ void runCommand(char* raw_input_string, vector<vector<string>* >* all_tokens)
       if(pid == 0)
       {
         cout << "b" << endl;
-        //dup2(0, pipes[0][0]);
+        //dup2(0, pipes[0][0])
         dup2(0, fd2[0]);
         child_num++;
 
-        char* argv[tokens->size() + 1];
+        char* argv[tokens.size() + 1];
 
-        for (size_t i = 0; i < tokens->size(); i++)
+        for (size_t i = 0; i < tokens.size(); i++)
         {
-          argv[i] = (char *)malloc(sizeof((*tokens)[i]) + 1);
-          strcpy(argv[i], (*tokens)[i].c_str());
+          //argv[i] = (char)malloc(sizeof(tokens[i]) + 1);
+          strcpy(argv[i], tokens[i].c_str());
         }
 
-        argv[tokens->size()] = NULL;
+        argv[tokens.size()] = NULL;
 
         execvp(argv[0], argv);
 
@@ -563,7 +711,7 @@ void addHistory(list<string>* commands, int* commands_current_index, char* raw_i
 }
 
 bool writeInput(char* raw_input, list<string>* commands, int* commands_current_index,
-    char* raw_input_string, int* raw_input_string_index, vector<string>* tokens, vector<string>* redirectTokens)
+    char* raw_input_string, int* raw_input_string_index, vector<vector<string> >* all_tokens, vector<string>* redirectTokens)
 {
 
   // write input character out for user to see
@@ -587,8 +735,8 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
 
       addHistory(commands, commands_current_index, raw_input_string, raw_input_string_index);
 
-      (*redirectTokens) = redirectDelimiter(raw_input_string);
-
+      all_tokens = tokenize(formatString(raw_input_string), all_tokens);
+/*
       for(size_t i = 0; i < (*redirectTokens).size(); i++)
       {
 
@@ -596,7 +744,7 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
         (*tokens) = tokenize(tmp);
 
       }
-
+*/
       // for testing
       /*string str1("ls");
       string str2("grep");
@@ -614,11 +762,11 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
       tokens2.push_back(&cmd2);*/
 
       // to use for old tokenize
-      vector<vector<string>* > tokens2;
-      tokens2.push_back(tokens);
+      //vector<vector<string>* > tokens2;
+      //tokens2.push_back(tokens);
 
-      runCommand(raw_input_string, &tokens2);
-      (*tokens).clear();
+      runCommand(raw_input_string, all_tokens);
+      (*all_tokens).clear();
 
     }
 
@@ -733,7 +881,8 @@ int main(int argc, char* argv[])
 
   list<string> commands;
 
-  vector<string> tokens, redirectTokens;
+  vector<vector<string> > all_tokens;
+  vector<string> redirectTokens;
 
   //createPipe(); 
 
@@ -745,7 +894,7 @@ int main(int argc, char* argv[])
   int raw_input_string_index = 0;
   char raw_input = readInput(&raw_input);
 
-  while(processInput(&raw_input, &commands, &commands_current_index, raw_input_string, &raw_input_string_index, &tokens, &redirectTokens))
+  while(processInput(&raw_input, &commands, &commands_current_index, raw_input_string, &raw_input_string_index, &all_tokens, &redirectTokens))
   {
 
     raw_input = readInput(&raw_input);
@@ -753,4 +902,5 @@ int main(int argc, char* argv[])
   }
 
   return 0;
+
 }
