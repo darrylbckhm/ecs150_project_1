@@ -258,13 +258,9 @@ vector<vector<string> >* tokenize(string formattedString, vector<vector<string> 
 
   vector<string> cmdTokens;
     
-  //size_t pos = 0;
-
-  const char* str = formattedString.c_str();
-  size_t size = sizeof(char) * (strlen(str) - 1); // variable for the size of formattedString
-  char cstr[size]; // char array to hold formattedString
-
-  memcpy(cstr, str, size); // copy bytes from str to the new array
+  char cstr[1024];
+  string tmp = formattedString.substr(0, formattedString.size()-1);
+  strcpy(cstr, tmp.c_str());
 
   bool escape = false; // true when escape character is seen
   int numPipes = 0;
@@ -322,10 +318,12 @@ vector<vector<string> >* tokenize(string formattedString, vector<vector<string> 
   all_tokens->push_back(cmdTokens);
   cmdTokens.clear();
 
-  //for(size_t i = 0; i < all_tokens->size(); i++)
-    //for(size_t j = 0; j < all_tokens[i].size(); j++)
-      //cout << (*all_tokens)[i][j] << endl;
 
+  //for(size_t i = 0; i < all_tokens->size(); i++)
+    //for(size_t j = 0; j < (*all_tokens)[i].size(); j++)
+      //cout << "i: " << i << ", j: " << j << endl;
+      //cout << (*all_tokens)[i][j] << endl;
+  
   return all_tokens;
 
 }
@@ -572,10 +570,6 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, boo
     vector<string> tokens = *itr;
     string cmd = tokens[0];
 
-    cout << "cmd: " << cmd << endl;
-    if (tokens.size() > 1)
-      cout << "arg: " << tokens[1] << endl;
-
     pid_t pid;
     pid = newChild();
 
@@ -597,8 +591,9 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, boo
           }
 
           dup2(pipes[0][1], 1);
-          close(pipes[0][0]);
-          close(pipes[0][1]);
+          //close(pipes[0][0]);
+          //close(pipes[0][1]);
+
         }
         // else hook up to pipe before and after
         else
@@ -607,10 +602,12 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, boo
           if (child_num != num_children - 1)
           {
             dup2(pipes[child_num][1], 1);
-            close(pipes[child_num][1]);
+            //close(pipes[child_num][1]);
           }
           else
           {
+            cerr << "a" << endl;
+
             if (redirect_output)
             {
               int fd = open(output_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
@@ -618,10 +615,10 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, boo
               close(fd);
             }
 
-            close(pipes[child_num-1][1]);
+            //close(pipes[child_num-1][1]);
           }
 
-          close(pipes[child_num-1][0]);
+          //close(pipes[child_num-1][0]);
         }
       }
       else
@@ -670,6 +667,7 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, boo
       }
       else
       {
+
         cerr << "child_num: " << child_num << endl;
         cerr << "cmd: " << cmd << endl;
         if (tokens.size() > 1)
@@ -679,11 +677,17 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, boo
 
         for (size_t i = 0; i < tokens.size(); i++)
         {
-          //argv[i] = (char)malloc(sizeof(tokens[i]) + 1);
+          argv[i] = (char *)malloc(sizeof(tokens[i]) + 1);
           strcpy(argv[i], tokens[i].c_str());
         }
 
         argv[tokens.size()] = NULL;
+
+        for (int i = 0; i < num_pipes; i++)
+        {
+          close(pipes[i][0]);
+          close(pipes[i][1]);
+        }
 
         execvp(argv[0], argv);
 
@@ -704,8 +708,12 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, boo
     close(pipes[i][1]);
   }
 
-  int status2;
-  wait(&status2);
+  for (int i = 0; i < num_children; i++)
+  {
+    int status;
+    wait(&status);
+  }
+
 }
 
 void addHistory(list<string>* commands, int* commands_current_index, char* raw_input_string, int* raw_input_string_index)
@@ -753,44 +761,6 @@ bool writeInput(char* raw_input, list<string>* commands, int* commands_current_i
       addHistory(commands, commands_current_index, raw_input_string, raw_input_string_index);
 
       all_tokens = tokenize(formatString(raw_input_string), all_tokens);
-/*
-      for(size_t i = 0; i < (*redirectTokens).size(); i++)
-      {
-
-        const char* tmp = (*redirectTokens)[i].c_str();
-        (*tokens) = tokenize(tmp);
-
-      }
-*/
-      // for testing
-      string str1("cat");
-      string str2("README");
-      string str3("grep");
-      string str4("Name");
-      string str5("grep");
-      string str6("Name");
-
-      vector<string> cmd1;
-      cmd1.push_back(str1);
-      cmd1.push_back(str2);
-
-      vector<string> cmd2;
-      cmd2.push_back(str2);
-      cmd2.push_back(str3);
-      cmd2.push_back(str4);
-
-      vector<string> cmd3;
-      cmd3.push_back(str5);
-      cmd3.push_back(str6);
-
-      vector<vector<string>* > tokens2;
-      tokens2.push_back(&cmd1);
-      tokens2.push_back(&cmd2);
-      tokens2.push_back(&cmd3);
-
-      // to use for old tokenize
-      /*vector<vector<string>* > tokens2;
-        tokens2.push_back(tokens);*/
 
       bool redirect_output = false;
       string output_file = "log.txt";
