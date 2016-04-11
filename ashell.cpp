@@ -700,7 +700,8 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, vec
         if (strcmp(output_file, ""))
         {
 
-          int fd = open(output_file, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+          mode_t mode = S_IRUSR | S_IWUSR | S_IXUSR;
+          int fd = open(output_file, O_WRONLY | O_CREAT, mode );
 
           dup2(fd, 1);
 
@@ -774,6 +775,7 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, vec
 
         execvp(argv[0], argv);
 
+        cerr << "a" << endl;
         exit(0);
 
       }
