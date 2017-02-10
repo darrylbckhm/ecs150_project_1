@@ -132,7 +132,6 @@ string formatString(char* raw_input_string)
     pos = str.find_first_of('\\', pos + 1);
 
   }
-  //cout << str << '\n';
 
   return str;
 
@@ -173,9 +172,20 @@ void ff(pid_t* pid, int* status, vector<string> cmdStr, const char* dirname, int
 
   // try to open directory
   if (!(dir = opendir(dirname)))
+  {
+
+    write(1, "Failed to open directory.\n", 26);
     return;
+
+  }
+
   if (!(entry = readdir(dir))) //if directory is readable
+  {
+
+    write(1, "Failed to open directory.\n", 26);
     return;
+
+  }
 
   while ((entry = readdir(dir)) != NULL)
   {
@@ -183,7 +193,11 @@ void ff(pid_t* pid, int* status, vector<string> cmdStr, const char* dirname, int
     {
       char path[1024];
 
-      int len = snprintf(path, sizeof(path)-1, "%s/%s", dirname, entry->d_name);
+      int len = strlen(dirname) + 1 + strlen(entry->d_name);
+      string s1(dirname);
+      string s2(entry->d_name);
+      string tmp = s1 + "/" + s2;
+      strcpy(path, tmp.c_str());
 
       path[len] = 0;
 
@@ -200,7 +214,10 @@ void ff(pid_t* pid, int* status, vector<string> cmdStr, const char* dirname, int
       char* fname = entry->d_name;
       if(!strcmp(fname, file))
       {
-        cout << dirname << "/" << file << "\n";
+        write(1, dirname, sizeof(dirname));
+        write(1, "/", 1);
+        write(1, file, sizeof(file));
+        write(1, "\n", 1);
       }
 
     }
@@ -237,7 +254,7 @@ void cd(vector<string> cmdStr)
   else
   {
 
-    write(1,"Not a directory", 20);
+    write(1,"Error changing directory.\r\n", 27);
   }
 
 }
@@ -275,6 +292,8 @@ vector<vector<string> >* tokenize(string formattedString, vector<vector<string> 
   int numPipes = 0;
   int numRedir = 0;
   char* token;
+  (*redirectTokens)[0] = "";
+  (*redirectTokens)[1] = "";
 
   token = strtok(cstr, " ");
 
@@ -356,7 +375,6 @@ vector<vector<string> >* tokenize(string formattedString, vector<vector<string> 
   all_tokens->push_back(cmdTokens);
   cmdTokens.clear();
 
-
   //for(size_t i = 0; i < all_tokens->size(); i++)
     //for(size_t j = 0; j < (*all_tokens)[i].size(); j++)
       //cout << (*all_tokens)[i][j] << endl;
@@ -430,7 +448,10 @@ void ls(int* status, vector<string> cmdStr) //source used: #2,3
   }
   else
   {
-    cout << "Not a directory\n";
+    write(1, "Failed to open directory ", 24);
+    write(1, " \"", 1);
+    write(1, path.c_str(), sizeof(path));
+    write(1, "\n", 1);
   }
 
   exit(0);
@@ -454,7 +475,14 @@ void downHistory(list<string>* commands, int* commands_current_index, char *raw_
 
   // check if at end of command list (at prompt)
   if ((int)(*commands).size() == *commands_current_index)
+  {
     write(1, "\a", 1);
+    for (int i = 0; i < *raw_input_string_index; i++)
+    {
+       write(1, "\b \b", 3);
+    }
+    *raw_input_string_index = 0;
+  }
   else
   {
 
@@ -568,6 +596,10 @@ bool processInput(char* raw_input, list<string>* commands, int* commands_current
       write(1, "\b \b", 3);
       (*raw_input_string_index)--;
     }
+    else
+    {
+      write(1, "\a", 1);
+    }
     return true;
   }
 
@@ -669,7 +701,8 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, vec
             if (strcmp(output_file, "")) //if redirect input 
             {
 
-              int fd = open(output_file, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+              mode_t mode = S_IRUSR | S_IWUSR;
+              int fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, mode );
 
               dup2(fd, 1);
 
@@ -700,8 +733,8 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, vec
         if (strcmp(output_file, ""))
         {
 
-          mode_t mode = S_IRUSR | S_IWUSR | S_IXUSR;
-          int fd = open(output_file, O_WRONLY | O_CREAT, mode );
+          mode_t mode = S_IRUSR | S_IWUSR;
+          int fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, mode );
 
           dup2(fd, 1);
 
@@ -775,7 +808,6 @@ void runCommand(char* raw_input_string, vector<vector<string> >* all_tokens, vec
 
         execvp(argv[0], argv);
 
-        cerr << "a" << endl;
         exit(0);
 
       }
@@ -924,7 +956,7 @@ void set_non_canonical_mode(int fd, struct termios *savedattributes)
   if (!isatty(fd)) 
   {
 
-    fprintf (stderr, "Not a terminal.\n");
+    write(2, "Not a terminal.\n", 16);
     exit(0);
 
   }
